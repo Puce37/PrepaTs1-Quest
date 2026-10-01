@@ -1,167 +1,73 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark-minimal">
+<html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Journal de Quêtes RPG</title>
-  <link rel="stylesheet" href="style.css">
-  
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Icônes Lucide -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quest Log</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- Canvas pour effets de particules -->
-  <canvas id="particleCanvas"></canvas>
+<div class="w">
 
-  <div class="app-container">
-    <!-- En-tête -->
-    <header class="app-header">
-      <div class="brand">
-        <div class="brand-icon">
-          <i data-lucide="shield"></i>
-        </div>
-        <div>
-          <h1>JOURNAL DE QUÊTES</h1>
-          <p class="subtitle">Gestionnaire de tâches RPG</p>
-        </div>
+  <header class="card">
+    <div class="top">
+      <h1>⚔️ Quest Log</h1>
+      <div class="tools" id="themes">
+        <button class="ib" data-t="dark" title="Sombre Épuré" aria-label="Thème Sombre Épuré">🌑</button>
+        <button class="ib" data-t="cyber" title="Cyber Slate" aria-label="Thème Cyber Slate">🔷</button>
+        <button class="ib" data-t="light" title="Clair Doux" aria-label="Thème Clair Doux">☀️</button>
+        <button class="ib" data-t="synth" title="Synthwave" aria-label="Thème Synthwave">🌆</button>
+        <button class="ib" id="snd" title="Activer / couper le son" aria-label="Son">🔊</button>
       </div>
-
-      <div class="header-actions">
-        <div class="theme-picker">
-          <i data-lucide="palette"></i>
-          <select id="themeSelect">
-            <option value="dark-minimal">🌙 Sombre Épuré</option>
-            <option value="cyber-slate">⚡ Cyber Slate</option>
-            <option value="soft-light">✨ Clair Doux</option>
-            <option value="synth-sunset">ose Synthwave</option>
-          </select>
-        </div>
-
-        <button id="soundToggleBtn" class="icon-btn" title="Activer / Désactiver les sons">
-          <i data-lucide="volume-2" id="soundIcon"></i>
-        </button>
+    </div>
+    <div class="hero">
+      <div class="lv" id="lv">1</div>
+      <div class="xp">
+        <strong id="rank">Novice</strong> <small id="xpt"></small>
+        <div class="track"><div id="bar"></div></div>
       </div>
-    </header>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="s1">0</b><span>Quêtes totales</span></div>
+      <div class="stat"><b id="s2">0</b><span>Terminées</span></div>
+      <div class="stat"><b id="s3">0%</b><span>Taux de réussite</span></div>
+    </div>
+  </header>
 
-    <!-- Profil & Niveau -->
-    <section class="profile-strip">
-      <div class="player-info">
-        <div class="level-tag" id="levelDisplay">Niveau 1</div>
-        <div class="xp-progress-wrapper">
-          <div class="xp-text-row">
-            <span class="player-title">Aventurier</span>
-            <span class="xp-val" id="xpText">0 / 100 XP</span>
-          </div>
-          <div class="xp-track">
-            <div class="xp-fill" id="xpBarFill" style="width: 0%;"></div>
-          </div>
-        </div>
-      </div>
+  <section class="card" style="margin-top:14px">
+    <strong>Nouvelle quête</strong>
+    <form id="f">
+      <input id="t" class="full" placeholder="Titre de la quête" maxlength="80" required>
+      <select id="c" aria-label="Catégorie">
+        <option value="main">🔥 Principale</option>
+        <option value="side" selected>📜 Secondaire</option>
+        <option value="opt">💡 Facultative</option>
+        <option value="urg">🚨 Urgente</option>
+      </select>
+      <input id="ds" placeholder="Description (optionnelle)" maxlength="200">
+      <div class="picker full" id="dif" role="radiogroup" aria-label="Difficulté"></div>
+      <button class="btn full" type="submit">Ajouter la quête</button>
+    </form>
+  </section>
 
-      <div class="quick-stats">
-        <div class="stat-item">
-          <span class="stat-num" id="statTotal">0</span>
-          <span class="stat-lbl">Quêtes</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num stat-done" id="statCompleted">0</span>
-          <span class="stat-lbl">Terminées</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num" id="statRate">0%</span>
-          <span class="stat-lbl">Réussite</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Layout Principal -->
-    <main class="main-content">
-      <!-- Formulaire de création -->
-      <aside class="sidebar">
-        <div class="card form-card">
-          <div class="card-title">
-            <i data-lucide="plus-circle"></i>
-            <h2>Nouvelle Quête</h2>
-          </div>
-          <form id="addQuestForm">
-            <div class="form-group">
-              <label for="questTitle">Titre de la quête</label>
-              <input type="text" id="questTitle" placeholder="Ex: Ranger la chambre, Réviser..." required autocomplete="off">
-            </div>
-
-            <div class="form-group">
-              <label for="questCategory">Catégorie</label>
-              <select id="questCategory">
-                <option value="main">🔥 Principale</option>
-                <option value="side" selected>📜 Secondaire</option>
-                <option value="optional">💡 Facultative</option>
-                <option value="urgent">🚨 Urgente</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="questDifficulty">Niveau / Difficulté (XP)</label>
-              <select id="questDifficulty">
-                <option value="easy">🟢 Facile (+25 XP)</option>
-                <option value="medium" selected>🔵 Moyenne (+50 XP)</option>
-                <option value="hard">🔴 Difficile (+100 XP)</option>
-                <option value="epic">🟣 Épique (+250 XP)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="questDesc">Description (Optionnel)</label>
-              <textarea id="questDesc" rows="2" placeholder="Détails de l'objectif..."></textarea>
-            </div>
-
-            <button type="submit" class="submit-btn">
-              <i data-lucide="sparkles"></i> Forger la Quête
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      <!-- Liste des Quêtes & Filtres -->
-      <section class="quest-section">
-        <div class="filter-bar">
-          <div class="search-input">
-            <i data-lucide="search"></i>
-            <input type="text" id="searchInput" placeholder="Rechercher une quête...">
-          </div>
-
-          <div class="status-tabs" id="statusFilterGroup">
-            <button class="tab active" data-status="all">Toutes</button>
-            <button class="tab" data-status="active">En cours</button>
-            <button class="tab" data-status="completed">Terminées</button>
-          </div>
-        </div>
-
-        <!-- Filtres par catégorie -->
-        <div class="category-filters" id="categoryFilterGroup">
-          <button class="chip active" data-cat="all">Toutes</button>
-          <button class="chip" data-cat="main">🔥 Principales</button>
-          <button class="chip" data-cat="side">📜 Secondaires</button>
-          <button class="chip" data-cat="optional">💡 Facultatives</button>
-          <button class="chip" data-cat="urgent">🚨 Urgentes</button>
-        </div>
-
-        <!-- Conteneur des quêtes -->
-        <div id="questList" class="quest-list"></div>
-
-        <!-- État vide -->
-        <div id="emptyState" class="empty-state hidden">
-          <i data-lucide="compass"></i>
-          <p>Aucune quête trouvée dans ce registre.</p>
-        </div>
-      </section>
-    </main>
+  <div class="bar">
+    <div class="seg" id="seg">
+      <button data-v="todo">⚔️ En cours <span id="n1"></span></button>
+      <button data-v="done">🏆 Terminées <span id="n2"></span></button>
+    </div>
+    <input id="q" type="search" placeholder="Rechercher une quête…" aria-label="Rechercher">
   </div>
 
-  <script src="script.js" defer></script>
+  <div class="chips" id="chips">
+    <button class="chip" data-c="all">Toutes</button>
+    <button class="chip" data-c="main">🔥 Principales</button>
+    <button class="chip" data-c="side">📜 Secondaires</button>
+    <button class="chip" data-c="opt">💡 Facultatives</button>
+    <button class="chip" data-c="urg">🚨 Urgentes</button>
+  </div>
+
+  <div id="list"></div>
+</div>
+<script src="js/script.js"></script>
 </body>
 </html>
