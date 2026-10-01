@@ -1,0 +1,10 @@
+Place tes 4 images de trophees dans ce dossier avec ces noms exacts :
+
+  bronze.png   -> quetes Faciles
+  argent.png   -> quetes Moyennes
+  or.png       -> quetes Difficiles
+  platine.png  -> quetes Epiques
+
+Conseil : PNG ou SVG transparent, carre, environ 128 x 128 px.
+Autre extension (.webp, .svg, .jpg) ? Modifie les chemins "img" dans js/script.js (objet DIF).
+Tant qu'une image est absente, un emoji de remplacement s'affiche automatiquement.

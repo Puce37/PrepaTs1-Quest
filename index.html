@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<div id="fx" aria-hidden="true"></div>
 <div class="w">
 
   <header class="card">
@@ -17,9 +18,14 @@
         <button class="ib" data-t="cyber" title="Cyber Slate" aria-label="Thème Cyber Slate">🔷</button>
         <button class="ib" data-t="light" title="Clair Doux" aria-label="Thème Clair Doux">☀️</button>
         <button class="ib" data-t="synth" title="Synthwave" aria-label="Thème Synthwave">🌆</button>
+        <button class="ib" data-t="tron" title="Néon Tron" aria-label="Thème Néon Tron">⚡</button>
+        <button class="ib" data-t="forest" title="Forêt Verdoyante" aria-label="Thème Forêt Verdoyante">🌿</button>
+        <button class="ib" data-t="dungeon" title="Donjon" aria-label="Thème Donjon">🏰</button>
+        <button class="ib" id="mus" title="Musique" aria-label="Afficher le lecteur de musique">🎵</button>
         <button class="ib" id="snd" title="Activer / couper le son" aria-label="Son">🔊</button>
       </div>
     </div>
+    <div class="sync" id="sync"></div>
     <div class="hero">
       <div class="lv" id="lv">1</div>
       <div class="xp">
@@ -33,6 +39,20 @@
       <div class="stat"><b id="s3">0%</b><span>Taux de réussite</span></div>
     </div>
   </header>
+
+  <section class="card" id="mp" hidden>
+    <div class="mp-top"><strong>🎵 Musique</strong><span id="np">Aucune piste</span></div>
+    <input type="range" id="sk" min="0" max="100" step="0.1" value="0" aria-label="Position dans la piste">
+    <div class="mp-ctl">
+      <button class="ib" id="pv" aria-label="Piste précédente">⏮</button>
+      <button class="ib" id="pp" aria-label="Lecture / pause">▶</button>
+      <button class="ib" id="nx" aria-label="Piste suivante">⏭</button>
+      <input type="range" id="vol" min="0" max="1" step="0.01" aria-label="Volume">
+    </div>
+    <div class="tl" id="tl"></div>
+    <button class="btn" id="add" type="button">＋ Ajouter des MP3</button>
+    <input type="file" id="mf" accept="audio/mpeg,.mp3" multiple hidden>
+  </section>
 
   <section class="card" style="margin-top:14px">
     <strong>Nouvelle quête</strong>
@@ -69,5 +89,7 @@
   <div id="list"></div>
 </div>
 <script src="js/script.js"></script>
+<script src="js/drive.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

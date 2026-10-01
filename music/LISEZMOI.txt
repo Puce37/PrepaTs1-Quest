@@ -1,0 +1,9 @@
+Place tes fichiers MP3 dans ce dossier, puis declare-les dans js/script.js :
+
+  const PLAYLIST = [
+    { title: 'Mon morceau', src: 'music/mon-morceau.mp3' },
+    { title: 'Ambiance donjon', src: 'music/donjon.mp3' },
+  ];
+
+Autre methode, sans rien modifier : ouvre le lecteur (bouton musique en haut a droite)
+puis clique sur "Ajouter des MP3" pour choisir des fichiers sur ton ordinateur.

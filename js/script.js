@@ -10,6 +10,12 @@ const KEY = 'questlog.v1';
 const XP_PAR_NIVEAU = 100;
 const RANKS = ['Novice', 'Apprenti', 'Aventurier', 'Vétéran', 'Héros', 'Légende'];
 
+/* Musiques fournies avec l'appli : place tes MP3 dans /music puis liste-les ici.
+   (Tu peux aussi en ajouter depuis le lecteur avec le bouton « Ajouter des MP3 ».) */
+const PLAYLIST = [
+  // { title: 'Mon morceau', src: 'music/mon-morceau.mp3' },
+];
+
 const CAT = {
   main: ['🔥', 'Principale'],
   side: ['📜', 'Secondaire'],
@@ -27,11 +33,22 @@ const DIF = {
 /* ==========================================================
    ÉTAT + SAUVEGARDE (LocalStorage)
    ========================================================== */
-let S = { quests: [], xp: 0, theme: '', sound: true };
+let S = { quests: [], base: 0, theme: '', sound: true, vol: .5, track: -1, mp: false };
 let view = 'todo', cat = 'all', q = '', fresh = '', selDif = 'mid';
 
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+/* Migration des anciennes sauvegardes + XP calculé à partir des quêtes
+   (les quêtes supprimées restent en « suppression douce » : leur XP est conservé
+   et la synchronisation Drive peut fusionner plusieurs appareils sans conflit) */
+S.quests.forEach(x => { x.upd = x.upd || x.doneAt || x.at; });
+const xpQuetes = () => S.quests.reduce((n, x) => n + (x.done ? DIF[x.dif].xp : 0), 0);
+if (S.xp !== undefined) { S.base = Math.max(S.base || 0, S.xp - xpQuetes()); delete S.xp; }
+S.base = Math.max(0, S.base || 0);
+const xpTotal = () => S.base + xpQuetes();
+
+const saveLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const save = () => { saveLocal(); if (typeof cloudPush === 'function') cloudPush(); };
 
 /* ==========================================================
    OUTILS
@@ -112,11 +129,11 @@ function burst(x, y, col, txt) {
    RENDU
    ========================================================== */
 function head() {
-  const lvl = Math.floor(S.xp / XP_PAR_NIVEAU) + 1, p = S.xp % XP_PAR_NIVEAU;
-  const tot = S.quests.length, dn = S.quests.filter(x => x.done).length;
+  const xp = xpTotal(), lvl = Math.floor(xp / XP_PAR_NIVEAU) + 1, p = xp % XP_PAR_NIVEAU;
+  const vis = S.quests.filter(x => !x.del), tot = vis.length, dn = vis.filter(x => x.done).length;
   $('lv').textContent = lvl;
   $('rank').textContent = RANKS[Math.min(Math.floor((lvl - 1) / 3), RANKS.length - 1)];
-  $('xpt').textContent = `· ${p} / ${XP_PAR_NIVEAU} XP (total ${S.xp})`;
+  $('xpt').textContent = `· ${p} / ${XP_PAR_NIVEAU} XP (total ${xp})`;
   $('bar').style.width = p + '%';
   $('s1').textContent = tot;
   $('s2').textContent = dn;
@@ -131,7 +148,7 @@ function render() {
   document.querySelectorAll('#chips .chip').forEach(b => b.classList.toggle('on', b.dataset.c === cat));
 
   const list = S.quests
-    .filter(x => x.done === (view === 'done') && (cat === 'all' || x.cat === cat) && (x.title + ' ' + x.desc).toLowerCase().includes(q))
+    .filter(x => !x.del && x.done === (view === 'done') && (cat === 'all' || x.cat === cat) && (x.title + ' ' + x.desc).toLowerCase().includes(q))
     .sort((a, b) => view === 'done'
       ? (b.doneAt || 0) - (a.doneAt || 0)
       : ((b.cat === 'urg') - (a.cat === 'urg')) || b.at - a.at);
@@ -178,7 +195,7 @@ $('dif').addEventListener('click', e => {
 $('f').addEventListener('submit', e => {
   e.preventDefault();
   const t = $('t').value.trim(); if (!t) return;
-  const x = { id: Date.now() + '-' + Math.floor(Math.random() * 999), title: t, cat: $('c').value, dif: selDif, desc: $('ds').value.trim(), done: false, at: Date.now() };
+  const x = { id: Date.now() + '-' + Math.floor(Math.random() * 999), title: t, cat: $('c').value, dif: selDif, desc: $('ds').value.trim(), done: false, at: Date.now(), upd: Date.now() };
   S.quests.unshift(x);
   fresh = x.id; view = 'todo'; cat = 'all'; q = ''; $('q').value = '';
   $('t').value = ''; $('ds').value = '';
@@ -193,16 +210,16 @@ $('list').addEventListener('click', e => {
 
   if (b.dataset.act === 'del') {                       // Suppression
     el.classList.add('gone');
-    S.quests = S.quests.filter(v => v !== x);
+    x.del = true; x.upd = Date.now();
     save(); snd('del'); setTimeout(render, 300);
 
   } else if (!x.done) {                                // Validation
-    const d = DIF[x.dif], r = b.getBoundingClientRect(), oldL = Math.floor(S.xp / XP_PAR_NIVEAU) + 1;
+    const d = DIF[x.dif], r = b.getBoundingClientRect(), oldL = Math.floor(xpTotal() / XP_PAR_NIVEAU) + 1;
     el.classList.add('leave');
     burst(r.left + 13, r.top + 13, d.color, '+' + d.xp + ' XP');
-    S.xp += d.xp; x.done = true; x.doneAt = Date.now();
+    x.done = true; x.doneAt = x.upd = Date.now();
     save(); snd('done'); head();
-    const nl = Math.floor(S.xp / XP_PAR_NIVEAU) + 1;
+    const nl = Math.floor(xpTotal() / XP_PAR_NIVEAU) + 1;
     if (nl > oldL) setTimeout(() => {
       snd('lvl');
       const l = $('lv').getBoundingClientRect();
@@ -211,8 +228,7 @@ $('list').addEventListener('click', e => {
     setTimeout(render, 380);
 
   } else {                                             // Retour « En cours »
-    S.xp = Math.max(0, S.xp - DIF[x.dif].xp);
-    x.done = false; delete x.doneAt; fresh = x.id;
+    x.done = false; delete x.doneAt; x.upd = Date.now(); fresh = x.id;
     save(); snd('add'); render();
   }
 });
@@ -228,6 +244,7 @@ function theme(t) {
   if (t) { document.documentElement.dataset.theme = t; S.theme = t; }
   const cur = S.theme || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
   document.querySelectorAll('#themes [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === cur));
+  fx(cur);
 }
 $('themes').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { theme(b.dataset.t); save(); } });
 
@@ -235,7 +252,106 @@ function sndBtn() { $('snd').textContent = S.sound ? '🔊' : '🔇'; $('snd').c
 $('snd').addEventListener('click', () => { S.sound = !S.sound; save(); sndBtn(); snd('add'); });
 
 /* ==========================================================
+   AMBIANCE DES THÈMES (feuilles, traînées Tron, donjon)
+   ========================================================== */
+const rnd = (a, b) => a + Math.random() * (b - a);
+function fx(t) {
+  const f = $('fx'); f.className = t; let h = '';
+  if (t === 'forest') for (let i = 0; i < 26; i++)
+    h += `<i class="leaf" style="left:${rnd(0, 100)}%;--s:${rnd(8, 17)}px;--dx:${rnd(-70, 70)}px;--lc:hsl(${rnd(70, 130)},60%,${rnd(38, 62)}%);animation-duration:${rnd(9, 18)}s;animation-delay:-${rnd(0, 18)}s"></i>`;
+  if (t === 'tron') for (let i = 0; i < 9; i++) {
+    const v = i % 3 === 2, col = i % 2 ? '#ff7a1a' : '#00e5ff';
+    h += `<i class="trail${v ? ' v' : ''}" style="--tc:${col};${v ? 'left' : 'top'}:${rnd(3, 97)}%;animation-duration:${rnd(3, 7)}s;animation-delay:-${rnd(0, 7)}s"></i>`;
+  }
+  if (t === 'dungeon') h = '<b class="beam"></b><b class="post l"></b><b class="post r"></b>'
+    + '<div class="torch l"><i class="flame"></i><b></b></div><div class="torch r"><i class="flame"></i><b></b></div>';
+  f.innerHTML = h;
+}
+
+/* ==========================================================
+   MUSIQUE MP3
+   - pistes de PLAYLIST (dossier /music)
+   - pistes ajoutées par l'utilisateur, gardées dans IndexedDB
+   (réglages du lecteur : saveLocal, jamais envoyés sur Drive)
+   ========================================================== */
+const au = new Audio();
+let tracks = PLAYLIST.map(t => ({ title: t.title, src: t.src, id: null })), cur = -1;
+
+const idb = () => new Promise((ok, ko) => {
+  const r = indexedDB.open('questlog-music', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('m', { keyPath: 'id', autoIncrement: true });
+  r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+});
+async function dbRun(mode, fn) {
+  const db = await idb();
+  return new Promise((ok, ko) => {
+    const tx = db.transaction('m', mode), r = fn(tx.objectStore('m'));
+    tx.oncomplete = () => ok(r.result); tx.onerror = () => ko(tx.error);
+  });
+}
+
+function drawMusic() {
+  const t = tracks[cur];
+  $('np').textContent = t ? t.title : 'Aucune piste';
+  $('pp').textContent = au.paused ? '▶' : '⏸';
+  $('mus').classList.toggle('on', !au.paused);
+  $('tl').innerHTML = tracks.length ? tracks.map((t, i) =>
+    `<div class="tk${i === cur ? ' on' : ''}" data-i="${i}"><span>${i === cur && !au.paused ? '🔊' : '🎶'} ${esc(t.title)}</span>${t.id != null ? `<button data-rm="${i}" aria-label="Retirer la piste">✕</button>` : ''}</div>`).join('')
+    : '<div class="empty">Aucune musique. Ajoute des MP3 avec le bouton ci-dessous.</div>';
+}
+function load(i, play) {
+  if (!tracks.length) return;
+  cur = (i + tracks.length) % tracks.length;
+  au.src = tracks[cur].src; S.track = cur; saveLocal();
+  if (play) au.play().catch(() => {});
+  drawMusic();
+}
+const toggleMusic = () => cur < 0 ? load(0, true) : au.paused ? au.play().catch(() => {}) : au.pause();
+
+au.addEventListener('play', drawMusic);
+au.addEventListener('pause', drawMusic);
+au.addEventListener('ended', () => load(cur + 1, true));
+au.addEventListener('timeupdate', () => { if (au.duration) $('sk').value = au.currentTime / au.duration * 100; });
+au.addEventListener('error', () => { if (tracks[cur]) $('np').textContent = '⚠️ Fichier introuvable : ' + tracks[cur].title; });
+
+$('pp').onclick = toggleMusic;
+$('nx').onclick = () => load(cur + 1, true);
+$('pv').onclick = () => load(cur < 0 ? 0 : cur - 1, true);
+$('sk').oninput = e => { if (au.duration) au.currentTime = e.target.value / 100 * au.duration; };
+$('vol').oninput = e => { au.volume = S.vol = +e.target.value; saveLocal(); };
+$('mus').onclick = () => { S.mp = !S.mp; $('mp').hidden = !S.mp; saveLocal(); };
+$('add').onclick = () => $('mf').click();
+
+$('mf').addEventListener('change', async e => {
+  for (const f of e.target.files) {
+    const title = f.name.replace(/\.[^.]+$/, ''); let id = null;
+    try { id = await dbRun('readwrite', s => s.add({ title, blob: f })); } catch (er) {}   // sinon : valable pour la session
+    tracks.push({ title, src: URL.createObjectURL(f), id });
+  }
+  e.target.value = '';
+  if (cur < 0 && tracks.length) load(0, true); else drawMusic();
+});
+
+$('tl').addEventListener('click', async e => {
+  const row = e.target.closest('.tk'); if (!row) return;
+  const i = +row.dataset.i;
+  if (e.target.closest('[data-rm]')) {                 // Retirer une piste ajoutée
+    const t = tracks[i];
+    try { await dbRun('readwrite', s => s.delete(t.id)); } catch (er) {}
+    URL.revokeObjectURL(t.src); tracks.splice(i, 1);
+    if (i === cur) { au.pause(); au.removeAttribute('src'); cur = -1; } else if (i < cur) cur--;
+    drawMusic();
+  } else if (i === cur) toggleMusic(); else load(i, true);
+});
+
+async function initMusic() {
+  au.volume = S.vol; $('vol').value = S.vol; $('mp').hidden = !S.mp;
+  try { (await dbRun('readonly', s => s.getAll())).forEach(m => tracks.push({ title: m.title, src: URL.createObjectURL(m.blob), id: m.id })); } catch (er) {}
+  if (tracks[S.track]) load(S.track, false); else drawMusic();
+}
+
+/* ==========================================================
    DÉMARRAGE
    ========================================================== */
 if (S.theme) document.documentElement.dataset.theme = S.theme;
-theme(); sndBtn(); buildPicker(); render();
+theme(); sndBtn(); buildPicker(); render(); initMusic();
