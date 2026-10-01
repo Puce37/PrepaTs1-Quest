@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark-fantasy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Journal de Quêtes RPG pour la prépa XD</title>
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Orbitron:wght@500;700;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Icônes Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- Canvas pour les effets de particules (feux d'artifice/sparks) -->
+  <canvas id="particleCanvas"></canvas>
+
+  <div class="app-container">
+    <!-- En-tête HUD -->
+    <header class="hud-header">
+      <div class="hud-brand">
+        <div class="brand-icon">
+          <i data-lucide="shield-alert"></i>
+        </div>
+        <div>
+          <h1>JOURNAL DE QUÊTES</h1>
+          <p class="subtitle">System HUD v2.5 • Mode Aventurier</p>
+        </div>
+      </div>
+
+      <div class="hud-top-actions">
+        <!-- Sélecteur de Thème -->
+        <div class="theme-selector-wrapper">
+          <label for="themeSelect"><i data-lucide="palette"></i> Thème :</label>
+          <select id="themeSelect" class="custom-select">
+            <option value="dark-fantasy">🗡️ Dark Fantasy</option>
+            <option value="cyberpunk">⚡ Cyberpunk 2077</option>
+            <option value="synthwave">🌆 Synthwave Sunset</option>
+            <option value="clean-light">✨ Épuré Light</option>
+          </select>
+        </div>
+
+        <!-- Bouton Activer / Désactiver le Son -->
+        <button id="soundToggleBtn" class="btn-icon" title="Activer / Désactiver les effets sonores">
+          <i data-lucide="volume-2" id="soundIcon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Tableau de bord Statistiques Aventurier -->
+    <section class="stats-dashboard">
+      <div class="player-profile-card">
+        <div class="avatar-box">
+          <div class="avatar-frame">
+            <i data-lucide="swords" class="avatar-icon"></i>
+          </div>
+          <span class="level-badge" id="levelDisplay">NIV. 1</span>
+        </div>
+        <div class="player-info">
+          <div class="player-title-row">
+            <span class="player-name">Héros du Royaume</span>
+            <span class="xp-text" id="xpText">0 / 100 XP</span>
+          </div>
+          <div class="xp-bar-container">
+            <div class="xp-bar-fill" id="xpBarFill" style="width: 0%;"></div>
+            <div class="xp-bar-glow"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-counter-grid">
+        <div class="stat-card">
+          <i data-lucide="scroll" class="stat-icon icon-gold"></i>
+          <div class="stat-content">
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Quêtes Totales</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <i data-lucide="check-circle-2" class="stat-icon icon-green"></i>
+          <div class="stat-content">
+            <span class="stat-value" id="statCompleted">0</span>
+            <span class="stat-label">Accomplies</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <i data-lucide="zap" class="stat-icon icon-purple"></i>
+          <div class="stat-content">
+            <span class="stat-value" id="statRate">0%</span>
+            <span class="stat-label">Taux de Réussite</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Disposition Principale -->
+    <main class="main-layout">
+      <!-- Colonne de gauche : Formulaire de création -->
+      <aside class="sidebar-section">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2><i data-lucide="plus-circle"></i> Nouvelle Quête</h2>
+          </div>
+          <form id="addQuestForm" class="quest-form">
+            <div class="form-group">
+              <label for="questTitle">Titre de la quête *</label>
+              <input type="text" id="questTitle" placeholder="ex: Vaincre le Dragon du Nord" required autocomplete="off">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="questCategory">Catégorie</label>
+                <select id="questCategory" class="custom-select">
+                  <option value="main">🔥 Quête Principale</option>
+                  <option value="side">📜 Quête Secondaire</option>
+                  <option value="dungeon">🏰 Donjon / Boss</option>
+                  <option value="daily">⏳ Tâche Quotidienne</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="questXp">Récompense XP</label>
+                <input type="number" id="questXp" min="10" max="1000" step="10" value="50">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="questDesc">Description (Optionnelle)</label>
+              <textarea id="questDesc" rows="3" placeholder="Détails de l'objectif, emplacement, récompenses..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary">
+              <i data-lucide="sparkles"></i> Forger la Quête
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <!-- Colonne de droite : Liste & Filtres -->
+      <section class="content-section">
+        <!-- Barre de recherche et statut -->
+        <div class="controls-bar">
+          <div class="search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="searchInput" placeholder="Rechercher une quête...">
+          </div>
+
+          <div class="filter-tabs" id="statusFilterGroup">
+            <button class="tab-btn active" data-status="all">Toutes</button>
+            <button class="tab-btn" data-status="active">En cours</button>
+            <button class="tab-btn" data-status="completed">Terminées</button>
+          </div>
+        </div>
+
+        <!-- Filtres par catégorie -->
+        <div class="category-pills" id="categoryFilterGroup">
+          <button class="pill-btn active" data-cat="all">Toutes</button>
+          <button class="pill-btn" data-cat="main">🔥 Principales</button>
+          <button class="pill-btn" data-cat="side">📜 Secondaires</button>
+          <button class="pill-btn" data-cat="dungeon">🏰 Donjons</button>
+          <button class="pill-btn" data-cat="daily">⏳ Quotidiennes</button>
+        </div>
+
+        <!-- Liste dynamique des quêtes -->
+        <div id="questList" class="quest-list"></div>
+
+        <!-- État vide -->
+        <div id="emptyState" class="empty-state hidden">
+          <i data-lucide="compass" class="empty-icon"></i>
+          <h3>Aucune quête trouvée</h3>
+          <p>Le registre est vide. Ajoutez une nouvelle quête pour démarrer votre aventure !</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
