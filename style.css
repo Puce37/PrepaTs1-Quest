@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DESIGN LÉGER, ÉPURÉ & MODERNE
+   STYLE MODERNE ET ÉPURÉ AVEC BANDEAUX COLORÉS
    ========================================================================== */
 
 :root {
@@ -8,14 +8,20 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --transition: 0.2s ease;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Couleurs de Difficultés (Bandeaux) */
+  --diff-easy: #10B981;
+  --diff-medium: #3B82F6;
+  --diff-hard: #F97316;
+  --diff-epic: #A855F7;
 }
 
 /* 1. THÈME SOMBRE ÉPURÉ */
 [data-theme="dark-minimal"] {
   --bg: #0F1218;
   --card-bg: #171C26;
-  --card-hover: #1E2433;
+  --card-hover: #1E2536;
   --input-bg: #12151E;
   --border: rgba(255, 255, 255, 0.08);
   --border-focus: #6366F1;
@@ -189,7 +195,7 @@ body {
   border-color: var(--accent);
 }
 
-/* PROFILE STRIP */
+/* BANDEAU PROFIL & STATS */
 .profile-strip {
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -221,7 +227,7 @@ body {
   border: 1px solid var(--accent);
   font-weight: 700;
   font-size: 0.8rem;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
   white-space: nowrap;
 }
@@ -371,15 +377,15 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: opacity var(--transition);
-
+  transition: opacity var(--transition), transform var(--transition);
 }
 
 .submit-btn:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
-/* SECTION QUÊTES & FILTRES */
+/* QUÊTES ET FILTRES */
 .quest-section {
   display: flex;
   flex-direction: column;
@@ -429,6 +435,7 @@ textarea:focus {
   font-weight: 600;
   border-radius: 4px;
   cursor: pointer;
+  transition: all var(--transition);
 }
 
 .tab.active {
@@ -451,15 +458,17 @@ textarea:focus {
   font-size: 0.75rem;
   cursor: pointer;
   white-space: nowrap;
+  transition: all var(--transition);
 }
 
 .chip.active,
 .chip:hover {
   border-color: var(--accent);
   color: var(--accent);
+  background: var(--accent-light);
 }
 
-/* LISTE DE QUÊTES */
+/* CARTE QUÊTE AVEC BANDEAU COLORÉ */
 .quest-list {
   display: flex;
   flex-direction: column;
@@ -467,20 +476,38 @@ textarea:focus {
 }
 
 .quest-item {
+  position: relative;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  padding: 12px 16px 12px 22px; /* Marge à gauche pour le bandeau */
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  transition: border-color var(--transition);
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+  overflow: hidden;
 }
 
 .quest-item:hover {
-  border-color: var(--border-focus);
+  transform: translateX(3px);
+  border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* BANDEAU COLORÉ À GAUCHE DE LA QUÊTE */
+.quest-banner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 4px 0 0 4px;
+}
+
+.banner-easy { background: var(--diff-easy); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+.banner-medium { background: var(--diff-medium); box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
+.banner-hard { background: var(--diff-hard); box-shadow: 0 0 8px rgba(249, 115, 22, 0.4); }
+.banner-epic { background: var(--diff-epic); box-shadow: 0 0 8px rgba(168, 85, 247, 0.4); }
 
 .quest-item.completed {
   opacity: 0.55;
@@ -494,19 +521,26 @@ textarea:focus {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  flex: 1;
 }
 
+/* Checkbox */
 .checkbox {
   width: 20px;
   height: 20px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 2px;
   flex-shrink: 0;
+  transition: all var(--transition);
+}
+
+.quest-item:hover .checkbox {
+  border-color: var(--accent);
 }
 
 .quest-item.completed .checkbox {
@@ -529,27 +563,27 @@ textarea:focus {
 }
 
 .badge {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
 }
 
-.cat-badge {
-  background: var(--input-bg);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
+/* Styles des Catégories */
+.cat-main { background: rgba(249, 115, 22, 0.15); color: #F97316; border: 1px solid rgba(249, 115, 22, 0.3); }
+.cat-side { background: rgba(59, 130, 246, 0.15); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.3); }
+.cat-optional { background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); }
+.cat-urgent { 
+  background: rgba(239, 68, 68, 0.2); 
+  color: #EF4444; 
+  border: 1px solid #EF4444; 
+  animation: pulseBg 2s infinite ease-in-out; 
 }
 
-/* Badges de difficulté */
-.diff-badge {
-  font-weight: 600;
+@keyframes pulseBg {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
-
-.diff-easy { background: rgba(16, 185, 129, 0.15); color: #10B981; }
-.diff-medium { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
-.diff-hard { background: rgba(239, 68, 68, 0.15); color: #EF4444; }
-.diff-epic { background: rgba(168, 85, 247, 0.15); color: #A855F7; }
 
 .quest-name {
   font-size: 0.9rem;
@@ -574,6 +608,7 @@ textarea:focus {
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
+  transition: all var(--transition);
 }
 
 .delete-btn:hover {

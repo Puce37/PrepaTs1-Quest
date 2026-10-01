@@ -1,39 +1,47 @@
 /**
- * JOURNAL DE QUÊTES RPG - MOTEUR LIGHTWEIGHT
+ * JOURNAL DE QUÊTES RPG - MOTEUR JAVASCRIPT
  */
 
-// Mapping des difficultés et gains XP
+// Difficultés & Bandeaux
 const DIFFICULTY_MAP = {
-  easy: { label: '🟢 Facile', xp: 25, class: 'diff-easy' },
-  medium: { label: '🔵 Moyenne', xp: 50, class: 'diff-medium' },
-  hard: { label: '🔴 Difficile', xp: 100, class: 'diff-hard' },
-  epic: { label: '🟣 Épique', xp: 250, class: 'diff-epic' }
+  easy: { label: '🟢 Facile', xp: 25, bannerClass: 'banner-easy' },
+  medium: { label: '🔵 Moyenne', xp: 50, bannerClass: 'banner-medium' },
+  hard: { label: '🔴 Difficile', xp: 100, bannerClass: 'banner-hard' },
+  epic: { label: '🟣 Épique', xp: 250, bannerClass: 'banner-epic' }
 };
 
 // Catégories
 const CATEGORY_MAP = {
-  main: '🔥 Principale',
-  side: '📜 Secondaire',
-  dungeon: '🏰 Donjon',
-  daily: '⏳ Quotidienne'
+  main: { label: '🔥 Principale', class: 'cat-main' },
+  side: { label: '📜 Secondaire', class: 'cat-side' },
+  optional: { label: '💡 Facultative', class: 'cat-optional' },
+  urgent: { label: '🚨 Urgente', class: 'cat-urgent' }
 };
 
 // État initial
-let quests = JSON.parse(localStorage.getItem('rpg_quests_v2')) || [
+let quests = JSON.parse(localStorage.getItem('rpg_quests_v3')) || [
   {
     id: '1',
-    title: 'Découvrir le Journal de Quêtes',
-    category: 'main',
-    difficulty: 'easy',
-    desc: 'Explorez l\'interface et créez vos premières tâches.',
-    completed: true
+    title: 'Finaliser le projet important',
+    category: 'urgent',
+    difficulty: 'hard',
+    desc: 'À rendre en priorité aujourd\'hui.',
+    completed: false
   },
   {
     id: '2',
-    title: 'Créer une quête épique',
-    category: 'dungeon',
-    difficulty: 'epic',
-    desc: 'Définissez un grand objectif avec le formulaire.',
+    title: 'Découvrir les fonctionnalités du journal',
+    category: 'main',
+    difficulty: 'easy',
+    desc: 'Cocher cette quête pour tester l\'expérience.',
+    completed: true
+  },
+  {
+    id: '3',
+    title: 'Ranger le bureau',
+    category: 'optional',
+    difficulty: 'easy',
+    desc: 'Un espace propre améliore la concentration.',
     completed: false
   }
 ];
@@ -170,11 +178,11 @@ function animateParticles() {
 animateParticles();
 
 // ==========================================
-// LOGIQUE PRINCIPALE
+// RENDU ET GESTION
 // ==========================================
 
 function saveQuests() {
-  localStorage.setItem('rpg_quests_v2', JSON.stringify(quests));
+  localStorage.setItem('rpg_quests_v3', JSON.stringify(quests));
 }
 
 function updateHUD() {
@@ -226,20 +234,25 @@ function renderQuests() {
 
     filtered.forEach(quest => {
       const diffInfo = DIFFICULTY_MAP[quest.difficulty] || DIFFICULTY_MAP.medium;
-      const catLabel = CATEGORY_MAP[quest.category] || '📜 Secondaire';
+      const catInfo = CATEGORY_MAP[quest.category] || CATEGORY_MAP.side;
 
       const card = document.createElement('div');
       card.className = `quest-item ${quest.completed ? 'completed' : ''}`;
 
       card.innerHTML = `
+        <!-- Bandeau Coloré à Gauche -->
+        <div class="quest-banner ${diffInfo.bannerClass}"></div>
+
         <div class="quest-left">
           <div class="checkbox" onclick="toggleQuest('${quest.id}', event)">
             ${quest.completed ? '<i data-lucide="check" style="width:14px;height:14px;"></i>' : ''}
           </div>
           <div class="quest-details">
             <div class="tags-row">
-              <span class="badge cat-badge">${catLabel}</span>
-              <span class="badge diff-badge ${diffInfo.class}">${diffInfo.label} (+${diffInfo.xp} XP)</span>
+              <span class="badge ${catInfo.class}">${catInfo.label}</span>
+              <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-muted);">
+                ${diffInfo.label} (+${diffInfo.xp} XP)
+              </span>
             </div>
             <div class="quest-name">${escapeHTML(quest.title)}</div>
             ${quest.desc ? `<div class="quest-desc-text">${escapeHTML(quest.desc)}</div>` : ''}
@@ -311,14 +324,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.documentElement.setAttribute('data-theme', currentTheme);
   document.getElementById('themeSelect').value = currentTheme;
 
-  // Thème
+  // Sélecteur de Thème
   document.getElementById('themeSelect').addEventListener('change', (e) => {
     currentTheme = e.target.value;
     document.documentElement.setAttribute('data-theme', currentTheme);
     localStorage.setItem('rpg_theme', currentTheme);
   });
 
-  // Son
+  // Toggle Son
   const soundBtn = document.getElementById('soundToggleBtn');
   const soundIcon = document.getElementById('soundIcon');
   
@@ -334,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSoundUI();
   });
 
-  // Soumission
+  // Soumission Formulaire
   document.getElementById('addQuestForm').addEventListener('submit', (e) => {
     e.preventDefault();
 
@@ -364,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderQuests();
   });
 
-  // Recherche
+  // Barre de recherche
   document.getElementById('searchInput').addEventListener('input', (e) => {
     searchQuery = e.target.value;
     renderQuests();
