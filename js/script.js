@@ -28,16 +28,16 @@ const CAT = {
 };
 
 const DIF = {
-  easy: { label: 'Facile',    xp: 25,  color: '#22c55e', trophy: 'Bronze',  img: 'images/bronze.png',  fb: '🥉' },
-  mid:  { label: 'Moyenne',   xp: 50,  color: '#3b82f6', trophy: 'Argent',  img: 'images/argent.png',  fb: '🥈' },
-  hard: { label: 'Difficile', xp: 100, color: '#f97316', trophy: 'Or',      img: 'images/or.png',      fb: '🥇' },
-  epic: { label: 'Épique',    xp: 250, color: '#a855f7', trophy: 'Platine', img: 'images/platine.png', fb: '💎' }
+  easy: { label: 'Facile',    xp: 25,  color: '#cd7f32', trophy: 'Bronze',  img: 'images/bronze.png',  fb: '🥉' },
+  mid:  { label: 'Moyenne',   xp: 50,  color: '#c9d2de', trophy: 'Argent',  img: 'images/argent.png',  fb: '🥈' },
+  hard: { label: 'Difficile', xp: 100, color: '#ffc83d', trophy: 'Or',      img: 'images/or.png',      fb: '🥇' },
+  epic: { label: 'Épique',    xp: 250, color: '#72dcff', trophy: 'Platine', img: 'images/platine.png', fb: '💎' }
 };
 
 /* ==========================================================
    ÉTAT + SAUVEGARDE (LocalStorage)
    ========================================================== */
-let S = { quests: [], base: 0, theme: '', sound: true, vol: .5, track: -1, mp: false };
+let S = { quests: [], base: 0, theme: '', sound: true, vol: .5, track: -1, mp: false, fx: true };
 let view = 'todo', cat = 'all', q = '', fresh = '', selDif = 'mid';
 
 try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
@@ -78,29 +78,48 @@ document.addEventListener('error', e => {
 
 /* ==========================================================
    SONS (Web Audio API, aucun fichier externe)
+   Sons doux et organiques : sinus + harmoniques, attaque courte,
+   déclin naturel, petite réverbération, bruit filtré pour les « souffles ».
    ========================================================== */
-let ac;
+let ac, master, verb;
+function audio() {
+  if (ac) return ac;
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  master = ac.createGain(); master.gain.value = .9;
+  const comp = ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+  const len = Math.floor(ac.sampleRate * 1.6), buf = ac.createBuffer(2, len, ac.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4); }
+  verb = ac.createConvolver(); verb.buffer = buf;
+  const vg = ac.createGain(); vg.gain.value = .35; verb.connect(vg); vg.connect(master);
+  return ac;
+}
+function partial(f, t, d, v, wet) {                    // une composante sinusoïdale avec enveloppe
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.value = f;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(v, t + .008); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(master);
+  if (wet) { const s = ac.createGain(); s.gain.value = wet; g.connect(s); s.connect(verb); }
+  o.start(t); o.stop(t + d + .05);
+}
+const pluck = (f, t, d = .45, v = .2) => [[1, 1], [2, .25], [3, .08]].forEach(([m, a]) => partial(f * m, t, d / Math.sqrt(m), v * a, .45));
+const bell = (f, t, d, v = .16) => [[1, 1, 1], [2.76, .32, .55], [5.4, .12, .3]].forEach(([m, a, k]) => partial(f * m, t, d * k, v * a, .7));
+function swoosh(t, d, f0, f1, v = .16) {               // souffle : bruit passe-bande qui glisse
+  const n = Math.floor(ac.sampleRate * d), b = ac.createBuffer(1, n, ac.sampleRate), x = b.getChannelData(0);
+  for (let i = 0; i < n; i++) x[i] = Math.random() * 2 - 1;
+  const s = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = b; bp.type = 'bandpass'; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + d);
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(v, t + d * .25); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  s.connect(bp); bp.connect(g); g.connect(master); s.start(t);
+}
 function snd(k) {
   if (!S.sound) return;
   try {
-    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    ac.resume();
-    const n = ac.currentTime;
-    const seq = {
-      add:  [[523, 0], [784, .08]],
-      done: [[523, 0], [659, .07], [784, .14], [1047, .21]],
-      del:  [[300, 0], [180, .09]],
-      lvl:  [[523, 0], [659, .1], [784, .2], [1047, .3], [1319, .4]]
-    }[k];
-    seq.forEach(([f, t]) => {
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.type = k === 'del' ? 'sawtooth' : 'triangle';
-      o.frequency.value = f;
-      g.gain.setValueAtTime(.12, n + t);
-      g.gain.exponentialRampToValueAtTime(.001, n + t + .18);
-      o.connect(g); g.connect(ac.destination);
-      o.start(n + t); o.stop(n + t + .2);
-    });
+    audio(); ac.resume(); const t = ac.currentTime + .01;
+    if (k === 'add')  { pluck(659, t, .5); pluck(988, t + .09, .6, .16); }                       // « bulle » douce montante
+    if (k === 'done') { [523, 659, 784, 1047].forEach((f, i) => bell(f, t + i * .085, 1.4 - i * .1)); bell(2093, t + .34, 1.2, .05); }   // petit carillon
+    if (k === 'del')  { swoosh(t, .28, 1800, 280, .14); pluck(196, t + .02, .35, .16); }         // souffle + toc sourd
+    if (k === 'lvl')  { [392, 494, 587, 784].forEach((f, i) => pluck(f, t + i * .1, 1.1, .18)); bell(1175, t + .45, 2, .14); bell(1568, t + .55, 2, .1); }
   } catch (e) {}
 }
 
@@ -159,13 +178,13 @@ function render() {
 
   $('list').innerHTML = list.length ? list.map(x => {
     const d = DIF[x.dif], c = CAT[x.cat];
-    return `<article class="q${x.id === fresh ? ' new' : ''}${x.done ? ' done' : ''}" data-id="${x.id}" style="--c:${d.color}">
+    return `<article class="q${x.id === fresh ? ' new' : ''}${x.done ? ' done' : ''}" data-id="${x.id}" data-dif="${x.dif}" style="--c:${d.color}">
   <button class="chk" data-act="ok" aria-label="${x.done ? 'Rouvrir la quête' : 'Valider la quête'}">${x.done ? '✓' : ''}</button>
   <div class="bd">
     <h3>${esc(x.title)}</h3>${x.desc ? `<p>${esc(x.desc)}</p>` : ''}
     <div class="tags">
       <span class="tg${x.cat === 'urg' && !x.done ? ' pulse' : ''}">${c[0]} ${c[1]}</span>
-      <span class="tg" style="color:${d.color}">${trophy(x.dif, 'tro')} ${d.label} · +${d.xp} XP</span>
+      <span class="tg" style="color:color-mix(in srgb,${d.color} 62%,var(--tx))">${trophy(x.dif, 'tro')} ${d.label} · +${d.xp} XP</span>
       ${dueTag(x)}
     </div>
   </div>
@@ -204,7 +223,7 @@ $('f').addEventListener('submit', e => {
   S.quests.unshift(x);
   fresh = x.id; view = 'todo'; cat = 'all'; q = ''; $('q').value = '';
   $('t').value = ''; $('ds').value = '';
-  selDate = selTime = ''; $('ct').value = ''; dlbl(); calOpen(false);
+  selDate = selTime = ''; $('ct').value = ''; dlbl(); qToggle(false);
   save(); snd('add'); render();
 });
 
@@ -254,46 +273,136 @@ function theme(t) {
 }
 $('themes').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { theme(b.dataset.t); save(); } });
 
-function sndBtn() { $('snd').textContent = S.sound ? '🔊' : '🔇'; $('snd').classList.toggle('on', S.sound); }
-$('snd').addEventListener('click', () => { S.sound = !S.sound; save(); sndBtn(); snd('add'); });
+/* Paramètres : effets sonores + animations d'ambiance */
+function sndBtn() { $('sfx').checked = S.sound; $('fxo').checked = S.fx !== false; document.documentElement.classList.toggle('nofx', S.fx === false); }
+$('sfx').onchange = e => { S.sound = e.target.checked; save(); if (S.sound) snd('add'); };
+$('fxo').onchange = e => { S.fx = e.target.checked; save(); sndBtn(); };
 
 /* ==========================================================
-   AMBIANCE DES THÈMES (feuilles, traînées Tron, ville de nuit)
+   AMBIANCE DES THÈMES
+   #fx = décor derrière les cartes · #fx2 = particules devant (feuilles, pluie)
    ========================================================== */
 const rnd = (a, b) => a + Math.random() * (b - a);
+const f1 = (a, b) => rnd(a, b).toFixed(1);
+const NP = ['#ffd98a', '#ffb3e6', '#b9a0ff', '#8fe3ff'];
 
-/* Ville de nuit : étoiles, lune et deux plans de buildings générés au hasard (SVG) */
-function cityHTML() {
-  const W = 1600, pal = ['#ffd98a', '#ffb3e6', '#b9a0ff', '#8fe3ff'];
-  const layer = (fill, hMin, hMax, litP, op) => {
-    let x = -10, s = '';
-    while (x < W) {
-      const bw = Math.round(rnd(38, 100)), bh = Math.round(rnd(hMin, hMax)), y = 300 - bh;
-      s += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${fill}"/>`;
-      if (bh > hMax * .85) s += `<rect x="${x + bw / 2 - 1}" y="${y - 24}" width="2" height="24" fill="${fill}"/><circle class="bl" cx="${x + bw / 2}" cy="${y - 25}" r="2.4" fill="#ff4d6d" style="animation-delay:-${rnd(0, 3).toFixed(1)}s"/>`;
-      for (let wx = x + 7; wx < x + bw - 8; wx += 13)
-        for (let wy = y + 10; wy < 290; wy += 16)
-          if (Math.random() < litP)
-            s += `<rect${Math.random() < .07 ? ` class="tw" style="animation-delay:-${rnd(0, 4).toFixed(1)}s"` : ''} x="${wx}" y="${wy}" width="5" height="7" fill="${pal[Math.floor(rnd(0, pal.length))]}" opacity="${op}"/>`;
-      x += bw + Math.round(rnd(0, 6));
+/* Skyline SVG : immeubles + fenêtres allumées */
+function skyline(fill, hMin, hMax, litP, op, pal, cls = '') {
+  const W = 1600; let x = -10, s = '';
+  while (x < W) {
+    const bw = Math.round(rnd(38, 100)), bh = Math.round(rnd(hMin, hMax)), y = 300 - bh;
+    s += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${fill}"/>`;
+    if (bh > hMax * .85) s += `<rect x="${x + bw / 2 - 1}" y="${y - 24}" width="2" height="24" fill="${fill}"/><circle class="bl" cx="${x + bw / 2}" cy="${y - 25}" r="2.4" fill="#ff4d6d" style="animation-delay:-${f1(0, 3)}s"/>`;
+    for (let wx = x + 7; wx < x + bw - 8; wx += 13)
+      for (let wy = y + 10; wy < 290; wy += 16)
+        if (Math.random() < litP)
+          s += `<rect${Math.random() < .07 ? ` class="tw" style="animation-delay:-${f1(0, 4)}s"` : ''} x="${wx}" y="${wy}" width="5" height="7" fill="${pal[Math.floor(rnd(0, pal.length))]}" opacity="${op}"/>`;
+    x += bw + Math.round(rnd(0, 6));
+  }
+  return `<svg class="sk ${cls}" viewBox="0 0 ${W} 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${s}</svg>`;
+}
+
+/* Arbres en silhouette : sapins (3 étages) et feuillus, sur un plan de profondeur */
+function trees(fill, trunk, n, hMin, hMax, op) {
+  let s = ''; const b = 400;
+  for (let i = 0; i < n; i++) {
+    const x = rnd(0, 1600), h = rnd(hMin, hMax), w = h * .28;
+    if (Math.random() < .6) {
+      s += `<rect x="${x - 3}" y="${b - h * .18}" width="6" height="${h * .18}" fill="${trunk}"/>`;
+      for (let k = 0; k < 3; k++) {
+        const yk = b - h * .14 - k * h * .22, th = h * .46 * (1 - k * .12), tw = w * (1 - k * .24);
+        s += `<polygon points="${x.toFixed(0)},${(yk - th).toFixed(0)} ${(x - tw).toFixed(0)},${yk.toFixed(0)} ${(x + tw).toFixed(0)},${yk.toFixed(0)}" fill="${fill}"/>`;
+      }
+    } else {
+      s += `<rect x="${x - 4}" y="${b - h * .4}" width="8" height="${h * .4}" fill="${trunk}"/><ellipse cx="${x.toFixed(0)}" cy="${(b - h * .62).toFixed(0)}" rx="${(h * .3).toFixed(0)}" ry="${(h * .34).toFixed(0)}" fill="${fill}"/><ellipse cx="${(x - w * .6).toFixed(0)}" cy="${(b - h * .5).toFixed(0)}" rx="${(h * .2).toFixed(0)}" ry="${(h * .2).toFixed(0)}" fill="${fill}"/>`;
     }
-    return `<svg class="sk" viewBox="0 0 ${W} 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${s}</svg>`;
-  };
+  }
+  return `<svg class="fo" style="opacity:${op};animation-delay:-${f1(0, 8)}s" viewBox="0 0 1600 400" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${s}</svg>`;
+}
+
+const rain = n => { let h = ''; for (let i = 0; i < n; i++) h += `<i class="drop" style="left:${f1(-5, 105)}%;height:${Math.round(rnd(16, 34))}px;opacity:${rnd(.25, .6).toFixed(2)};animation-duration:${rnd(.45, .9).toFixed(2)}s;animation-delay:-${rnd(0, 1).toFixed(2)}s"></i>`; return h; };
+
+function tronHTML() {
+  let h = '<div class="tfloor"></div><i class="thz"></i>';
+  for (let i = 0; i < 9; i++) {
+    const v = i % 3 === 2, col = i % 2 ? '#ff7a1a' : '#00e5ff';
+    h += `<i class="trail${v ? ' v' : ''}" style="--tc:${col};${v ? 'left' : 'top'}:${f1(3, 97)}%;animation-duration:${f1(3, 7)}s;animation-delay:-${f1(0, 7)}s"></i>`;
+  }
+  return h;
+}
+function forestHTML() {
+  let h = '';
+  for (let i = 0; i < 3; i++) h += `<i class="ray" style="left:${f1(5, 85)}%;animation-delay:-${f1(0, 7)}s;animation-duration:${f1(5, 9)}s"></i>`;
+  return h + trees('#1f6b45', '#2d3b22', 9, 150, 300, .5) + trees('#14492f', '#241a12', 8, 190, 360, .8) + trees('#0a2c1c', '#150f0a', 6, 230, 390, 1);
+}
+function leavesHTML() {
+  let h = '';
+  for (let i = 0; i < 26; i++)
+    h += `<i class="leaf" style="left:${f1(0, 100)}%;--s:${f1(8, 17)}px;--dx:${Math.round(rnd(-70, 70))}px;--lc:hsl(${Math.round(rnd(70, 130))},60%,${Math.round(rnd(38, 62))}%);animation-duration:${f1(9, 18)}s;animation-delay:-${f1(0, 18)}s"></i>`;
+  return h;
+}
+function cityHTML(day) {
+  if (day) {
+    const win = ['#fffbe6', '#ffffff', '#d6ecff', '#bfe0ff'];
+    let s = '<div class="sun"></div>', cars = '';
+    for (let i = 0; i < 6; i++) s += `<i class="cloud" style="top:${f1(4, 34)}%;--w:${Math.round(rnd(90, 190))}px;opacity:${rnd(.6, .95).toFixed(2)};animation-duration:${Math.round(rnd(60, 120))}s;animation-delay:-${Math.round(rnd(0, 120))}s"></i>`;
+    for (let i = 0; i < 3; i++) s += `<i class="bird" style="top:${f1(10, 38)}%;animation-duration:${Math.round(rnd(14, 24))}s;animation-delay:-${Math.round(rnd(0, 20))}s"></i>`;
+    ['#e34a4a', '#f2c230', '#ffffff', '#3a78e0', '#2a2f3d'].forEach((c, i) => cars += `<i class="car${i % 2 ? ' rv' : ''}" style="--cc:${c};bottom:${i % 2 ? 9 : 3}px;animation-duration:${f1(9, 17)}s;animation-delay:-${f1(0, 16)}s"></i>`);
+    return s + skyline('#a9c5e8', 110, 230, .3, .6, win) + skyline('#6f90bd', 60, 170, .34, .85, win) + '<i class="road"></i>' + cars;
+  }
   let stars = '';
   for (let i = 0; i < 46; i++)
-    stars += `<i class="star" style="left:${rnd(0, 100)}%;top:${rnd(0, 55)}%;--s:${rnd(1, 2.6).toFixed(1)}px;animation-duration:${rnd(2, 5).toFixed(1)}s;animation-delay:-${rnd(0, 5).toFixed(1)}s"></i>`;
-  return stars + '<div class="moon"></div><i class="haze"></i><i class="shoot"></i>' + layer('#2b1a55', 120, 240, .17, .55) + layer('#150c2e', 60, 170, .24, 1);
+    stars += `<i class="star" style="left:${f1(0, 100)}%;top:${f1(0, 55)}%;--s:${f1(1, 2.6)}px;animation-duration:${f1(2, 5)}s;animation-delay:-${f1(0, 5)}s"></i>`;
+  return stars + '<div class="moon"></div><i class="haze"></i><i class="shoot"></i>' + skyline('#2b1a55', 120, 240, .17, .55, NP) + skyline('#150c2e', 60, 170, .24, 1, NP);
 }
+function dungeonHTML() {
+  const torch = (side, top) => {
+    let e = '';
+    for (let i = 0; i < 7; i++) e += `<u class="ember" style="--x:${Math.round(rnd(-22, 22))}px;animation-duration:${f1(1.8, 3.4)}s;animation-delay:-${f1(0, 3)}s"></u>`;
+    return `<div class="torch ${side}" style="top:${top}%"><i class="tl"></i><div class="flame"><i></i></div><b></b>${e}</div>`;
+  };
+  return '<b class="beam"></b><b class="post l"></b><b class="post r"></b>' + torch('l', 22) + torch('r', 22) + torch('l', 64) + torch('r', 64);
+}
+function stormHTML() {
+  const bolt = (x, dur, del) => {
+    let px = 45, py = 0, pts = '45,0';
+    while (py < 360) { py += rnd(22, 44); px += rnd(-20, 20); pts += ` ${px.toFixed(0)},${py.toFixed(0)}`; }
+    const st = `animation-duration:${dur}s;animation-delay:-${del.toFixed(1)}s`;
+    return `<i class="flash" style="--fx:${x.toFixed(0)}%;${st}"></i><svg class="bolt" style="left:${x.toFixed(0)}%;${st}" viewBox="0 0 90 400" preserveAspectRatio="none"><polyline points="${pts}"/></svg>`;
+  };
+  const tree = '<svg class="tree" viewBox="0 0 200 270" aria-hidden="true"><g fill="#03050a" stroke="#03050a"><path d="M92 270 C96 215 90 185 84 150 L118 150 C112 185 106 215 110 270 Z" stroke="none"/><path d="M100 175 L62 128 M104 168 L146 120 M100 150 L98 100" stroke-width="7" fill="none" stroke-linecap="round"/><g stroke="none"><circle cx="100" cy="92" r="46"/><circle cx="62" cy="120" r="32"/><circle cx="140" cy="118" r="34"/><circle cx="82" cy="62" r="28"/><circle cx="124" cy="58" r="28"/><circle cx="48" cy="96" r="22"/></g></g></svg>';
+  return '<i class="cl"></i><i class="cl c2"></i>' + bolt(rnd(12, 40), 8.3, rnd(0, 8)) + bolt(rnd(55, 88), 12.7, rnd(0, 12)) + '<div class="hill"></div>' + tree;
+}
+function roomsHTML() {
+  let p = '';
+  for (let i = 0; i < 7; i++) p += `<i class="pan" style="animation-duration:${f1(3, 11)}s;animation-delay:-${f1(0, 9)}s"></i>`;
+  return `<div class="ceil">${p}</div><i class="hum"></i><i class="grain"></i>`;
+}
+function motoHTML() {
+  const cols = ['#ff4fa3', '#35d0ff', '#ffd166', '#b388ff'];
+  let h = '';
+  for (let i = 0; i < 18; i++) h += `<i class="bk" style="left:${f1(0, 100)}%;bottom:${f1(14, 42)}%;width:${Math.round(rnd(6, 16))}px;height:${Math.round(rnd(6, 16))}px;background:${cols[i % 4]};opacity:.5;animation-duration:${f1(3, 6)}s;animation-delay:-${f1(0, 5)}s"></i>`;
+  const wheel = cx => `<g class="wh"><circle cx="${cx}" cy="68" r="20" fill="#08080f" stroke="#8d93d6" stroke-width="3"/><path d="M${cx} 50V86M${cx - 18} 68H${cx + 18}M${cx - 13} 55L${cx + 13} 81M${cx + 13} 55L${cx - 13} 81" stroke="#4a4f8a" stroke-width="1.5"/></g>`;
+  const bike = `<svg viewBox="0 0 160 92" aria-hidden="true">${wheel(36)}${wheel(126)}
+<path d="M36 68 L52 36" stroke="#1b1d33" stroke-width="5" stroke-linecap="round"/><path d="M48 34 L58 31" stroke="#1b1d33" stroke-width="4" stroke-linecap="round"/>
+<path d="M84 66 L126 68" stroke="#1b1d33" stroke-width="5" stroke-linecap="round"/>
+<path d="M56 58 L74 48 L110 48 L122 60 L116 72 L70 72 Z" fill="#10111e" stroke="#33386a" stroke-width="1.5"/>
+<path d="M60 46 Q76 28 100 40 L104 48 L64 50 Z" fill="#1a1c36" style="stroke:var(--ac)" stroke-width="1.6"/>
+<path d="M100 40 L128 38 L134 46 L104 48 Z" fill="#0b0c16"/>
+<path d="M108 42 L96 56 L88 66" stroke="#0f1020" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M106 42 L112 34 L84 16 L74 22 Z" fill="#0f1020"/>
+<path d="M82 20 L66 28 L56 32" stroke="#10111e" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="76" cy="10" r="9" fill="#0b0c16" style="stroke:var(--ac2)" stroke-width="1.5"/>
+<circle class="hlb" cx="46" cy="40" r="4" fill="#fff6c8"/><rect class="tlb" x="132" y="40" width="5" height="3" fill="#ff2a4a"/></svg>`;
+  return h + skyline('#14122b', 90, 200, .22, .8, cols, 'up') + '<div class="mroad"></div>' + `<div class="moto"><i class="hl"></i><i class="tl2"></i>${bike}</div>`;
+}
+
 function fx(t) {
-  const f = $('fx'); f.className = t; let h = '';
-  if (t === 'forest') for (let i = 0; i < 26; i++)
-    h += `<i class="leaf" style="left:${rnd(0, 100)}%;--s:${rnd(8, 17)}px;--dx:${rnd(-70, 70)}px;--lc:hsl(${rnd(70, 130)},60%,${rnd(38, 62)}%);animation-duration:${rnd(9, 18)}s;animation-delay:-${rnd(0, 18)}s"></i>`;
-  if (t === 'tron') for (let i = 0; i < 9; i++) {
-    const v = i % 3 === 2, col = i % 2 ? '#ff7a1a' : '#00e5ff';
-    h += `<i class="trail${v ? ' v' : ''}" style="--tc:${col};${v ? 'left' : 'top'}:${rnd(3, 97)}%;animation-duration:${rnd(3, 7)}s;animation-delay:-${rnd(0, 7)}s"></i>`;
-  }
-  if (t === 'city') h = cityHTML();
-  f.innerHTML = h;
+  const B = { tron: tronHTML, forest: forestHTML, city: () => cityHTML(false), day: () => cityHTML(true), dungeon: dungeonHTML, storm: stormHTML, rooms: roomsHTML, moto: motoHTML }[t];
+  const R = { forest: leavesHTML, storm: () => rain(70), moto: () => rain(60) }[t];
+  $('fx').className = t; $('fx2').className = t;
+  $('fx').innerHTML = B ? B() : '';
+  $('fx2').innerHTML = R ? R() : '';
 }
 
 /* ==========================================================
@@ -323,7 +432,7 @@ function drawMusic() {
   const t = tracks[cur];
   $('np').textContent = t ? t.title : 'Aucune piste';
   $('pp').textContent = au.paused ? '▶' : '⏸';
-  $('mus').classList.toggle('on', !au.paused);
+  $('mus').classList.toggle('live', !au.paused);
   $('mp').classList.toggle('playing', !au.paused);
   $('tl').innerHTML = tracks.length ? tracks.map((t, i) =>
     `<div class="tk${i === cur ? ' on' : ''}" data-i="${i}"><span>${i === cur && !au.paused ? '🔊' : '🎶'} ${esc(t.title)}</span>${t.id != null ? `<button data-rm="${i}" aria-label="Retirer la piste">✕</button>` : ''}</div>`).join('')
@@ -349,7 +458,6 @@ $('nx').onclick = () => load(cur + 1, true);
 $('pv').onclick = () => load(cur < 0 ? 0 : cur - 1, true);
 $('sk').oninput = e => { if (au.duration) au.currentTime = e.target.value / 100 * au.duration; fill(e.target); };
 $('vol').oninput = e => { au.volume = S.vol = +e.target.value; fill(e.target); saveLocal(); };
-$('mus').onclick = () => { S.mp = !S.mp; $('mp').hidden = !S.mp; saveLocal(); };
 $('add').onclick = () => $('mf').click();
 
 $('mf').addEventListener('change', async e => {
@@ -375,7 +483,7 @@ $('tl').addEventListener('click', async e => {
 });
 
 async function initMusic() {
-  au.volume = S.vol; $('vol').value = S.vol; fill($('vol')); $('mp').hidden = !S.mp;
+  au.volume = S.vol; $('vol').value = S.vol; fill($('vol'));
   try { (await dbRun('readonly', s => s.getAll())).forEach(m => tracks.push({ title: m.title, src: URL.createObjectURL(m.blob), id: m.id })); } catch (er) {}
   if (tracks[S.track]) load(S.track, false); else drawMusic();
 }
@@ -450,8 +558,34 @@ document.addEventListener('click', e => { if (!$('cal').hidden && !e.composedPat
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('cal').hidden) { calOpen(false); $('dbtn').focus(); } });
 
 /* ==========================================================
+   MENUS DÉROULANTS (thèmes, musique, paramètres) + CRÉATION DE QUÊTE
+   ========================================================== */
+const DDS = ['themes', 'mp', 'set'];
+function ddClose(except) {
+  DDS.forEach(id => {
+    if (id === except) return;
+    $(id).hidden = true;
+    const b = document.querySelector(`[data-dd="${id}"]`); b.classList.remove('on'); b.setAttribute('aria-expanded', 'false');
+  });
+}
+document.querySelectorAll('[data-dd]').forEach(b => b.addEventListener('click', () => {
+  const p = $(b.dataset.dd), open = p.hidden;
+  ddClose(open ? p.id : ''); p.hidden = !open; b.classList.toggle('on', open); b.setAttribute('aria-expanded', open);
+}));
+/* composedPath : fiable même si le contenu du menu est redessiné pendant le clic */
+document.addEventListener('click', e => { if (!e.composedPath().some(n => n.nodeType === 1 && (n.classList.contains('dd') || n.dataset.dd))) ddClose(''); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ddClose(''); });
+
+function qToggle(open) {
+  const o = open === undefined ? !$('qa').classList.contains('open') : open;
+  $('qa').classList.toggle('open', o); $('qc').classList.toggle('open', o); $('new').setAttribute('aria-expanded', o);
+  if (o) setTimeout(() => $('t').focus({ preventScroll: true }), 360); else calOpen(false);
+}
+$('new').onclick = () => qToggle();
+
+/* ==========================================================
    DÉMARRAGE
    ========================================================== */
-if (S.theme === 'dungeon' || S.theme === 'synth') S.theme = 'city';                 // l'ancien thème Donjon est devenu Ville de nuit
+if (S.theme === 'synth') S.theme = 'city';                 // l'ancien thème Donjon est devenu Ville de nuit
 if (S.theme) document.documentElement.dataset.theme = S.theme;
 theme(); sndBtn(); buildPicker(); render(); initMusic();

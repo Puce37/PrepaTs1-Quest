@@ -7,3 +7,8 @@ Place tes fichiers MP3 dans ce dossier, puis declare-les dans js/script.js :
 
 Autre methode, sans rien modifier : ouvre le lecteur (bouton musique en haut a droite)
 puis clique sur "Ajouter des MP3" pour choisir des fichiers sur ton ordinateur.
+
+{ title: 'Son of Flynn', src: 'music/The Son of Flynn (From TRON LegacyScore).mp3' },
+  { title: 'Digital Love', src: 'music/Daft Punk - Digital Love (Official Audio).mp3' },
+  { title: 'Golden Brown', src: 'music/The Stranglers - Golden Brown.mp3' },
+  { title: 'Shooting Stars', src: 'music/Bag Raiders - Shooting Stars (Official Video).mp3' },

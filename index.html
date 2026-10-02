@@ -8,22 +8,56 @@
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
+<div id="fx2" aria-hidden="true"></div>
 <div class="w">
 
-  <header class="card">
+  <header class="card" id="hd">
     <div class="top">
-      <h1>⚔️ Quest Log</h1>
-      <div class="tools" id="themes">
-        <button class="ib" data-t="dark" title="Sombre Épuré" aria-label="Thème Sombre Épuré">🌑</button>
-        <button class="ib" data-t="cyber" title="Cyber Slate" aria-label="Thème Cyber Slate">🔷</button>
-        <button class="ib" data-t="light" title="Clair Doux" aria-label="Thème Clair Doux">☀️</button>
-        <button class="ib" data-t="tron" title="Néon Tron" aria-label="Thème Néon Tron">⚡</button>
-        <button class="ib" data-t="forest" title="Forêt Verdoyante" aria-label="Thème Forêt Verdoyante">🌿</button>
-        <button class="ib" data-t="city" title="Ville de nuit" aria-label="Thème Ville de nuit">🌃</button>
-        <button class="ib" id="mus" title="Musique" aria-label="Afficher le lecteur de musique">🎵</button>
-        <button class="ib" id="snd" title="Activer / couper le son" aria-label="Son">🔊</button>
+      <div class="brand">
+        <img class="logo" id="logo" src="images/logo.png" alt="Logo" data-fb="⚔️">
+        <h1>Quest Log</h1>
+      </div>
+      <div class="tools">
+        <button class="ib" data-dd="themes" title="Thèmes" aria-label="Choisir un thème" aria-expanded="false">🎨</button>
+        <button class="ib" id="mus" data-dd="mp" title="Musique" aria-label="Ouvrir le lecteur de musique" aria-expanded="false">🎵</button>
+        <button class="ib" data-dd="set" title="Paramètres" aria-label="Ouvrir les paramètres" aria-expanded="false">⚙️</button>
       </div>
     </div>
+
+    <div class="card dd thm" id="themes" hidden>
+      <button class="tb" data-t="dark" title="Sombre Épuré" aria-label="Sombre Épuré">🌑</button>
+      <button class="tb" data-t="cyber" title="Cyber Slate" aria-label="Cyber Slate">🔷</button>
+      <button class="tb" data-t="light" title="Clair Doux" aria-label="Clair Doux">☀️</button>
+      <button class="tb" data-t="tron" title="Néon Tron" aria-label="Néon Tron">⚡</button>
+      <button class="tb" data-t="forest" title="Forêt verdoyante" aria-label="Forêt verdoyante">🌿</button>
+      <button class="tb" data-t="dungeon" title="Donjon" aria-label="Donjon">🏰</button>
+      <button class="tb" data-t="city" title="Ville de nuit" aria-label="Ville de nuit">🌃</button>
+      <button class="tb" data-t="day" title="Ville de jour" aria-label="Ville de jour">🏙️</button>
+      <button class="tb" data-t="storm" title="Pluie et orage" aria-label="Pluie et orage">⛈️</button>
+      <button class="tb" data-t="rooms" title="Backrooms" aria-label="Backrooms">🟨</button>
+      <button class="tb" data-t="moto" title="Moto sous la pluie" aria-label="Moto sous la pluie">🏍️</button>
+    </div>
+
+    <div class="card dd" id="mp" hidden>
+      <div class="mp-top"><strong>🎵 Musique</strong><span id="np">Aucune piste</span></div>
+      <input type="range" id="sk" min="0" max="100" step="0.1" value="0" aria-label="Position dans la piste">
+      <div class="mp-ctl">
+        <button class="ib" id="pv" aria-label="Piste précédente">⏮</button>
+        <button class="ib" id="pp" aria-label="Lecture / pause">▶</button>
+        <button class="ib" id="nx" aria-label="Piste suivante">⏭</button>
+        <input type="range" id="vol" min="0" max="1" step="0.01" aria-label="Volume">
+      </div>
+      <div class="tl" id="tl"></div>
+      <button class="btn" id="add" type="button">＋ Ajouter des MP3</button>
+      <input type="file" id="mf" accept="audio/mpeg,.mp3" multiple hidden>
+    </div>
+
+    <div class="card dd" id="set" hidden>
+      <strong>⚙️ Paramètres</strong>
+      <label class="sw"><span>🔊 Effets sonores</span><input type="checkbox" id="sfx"><i></i></label>
+      <label class="sw"><span>✨ Animations d’ambiance</span><input type="checkbox" id="fxo"><i></i></label>
+    </div>
+
     <div class="sync" id="sync"></div>
     <div class="hero">
       <div class="lv" id="lv">1</div>
@@ -39,22 +73,9 @@
     </div>
   </header>
 
-  <section class="card" id="mp" hidden>
-    <div class="mp-top"><strong>🎵 Musique</strong><span id="np">Aucune piste</span></div>
-    <input type="range" id="sk" min="0" max="100" step="0.1" value="0" aria-label="Position dans la piste">
-    <div class="mp-ctl">
-      <button class="ib" id="pv" aria-label="Piste précédente">⏮</button>
-      <button class="ib" id="pp" aria-label="Lecture / pause">▶</button>
-      <button class="ib" id="nx" aria-label="Piste suivante">⏭</button>
-      <input type="range" id="vol" min="0" max="1" step="0.01" aria-label="Volume">
-    </div>
-    <div class="tl" id="tl"></div>
-    <button class="btn" id="add" type="button">＋ Ajouter des MP3</button>
-    <input type="file" id="mf" accept="audio/mpeg,.mp3" multiple hidden>
-  </section>
-
-  <section class="card" style="margin-top:14px">
-    <strong>Nouvelle quête</strong>
+  <section class="card" id="qc" style="margin-top:14px">
+    <button class="qh" id="new" type="button" aria-expanded="false" aria-controls="qa"><span>＋ Nouvelle quête</span><i class="chev" aria-hidden="true">▾</i></button>
+    <div class="acc" id="qa"><div class="acc-in">
     <form id="f">
       <input id="t" class="full" placeholder="Titre de la quête" maxlength="80" required>
       <select id="c" aria-label="Catégorie">
@@ -90,6 +111,7 @@
       <div class="picker full" id="dif" role="radiogroup" aria-label="Difficulté"></div>
       <button class="btn full" type="submit">Ajouter la quête</button>
     </form>
+    </div></div>
   </section>
 
   <div class="bar">
