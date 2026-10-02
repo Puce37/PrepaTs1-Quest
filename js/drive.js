@@ -180,4 +180,13 @@ $('sync').addEventListener('click', e => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden && gOn) sync(); });
 
 ui();
-try { if (localStorage.getItem(FLAG)) gLogin(true); } catch (e) {}
+try {
+  if (localStorage.getItem(FLAG)) {
+    await gReady();
+    gClientInit();
+    // Demande le token en mode silencieux
+    gClient.requestAccessToken({ prompt: 'none' });
+  }
+} catch (e) {
+  console.log('Session expirée, reconnexion manuelle requise.');
+}
