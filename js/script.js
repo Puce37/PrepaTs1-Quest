@@ -15,7 +15,7 @@ const RANKS = ['Novice', 'Apprenti', 'Aventurier', 'Vétéran', 'Héros', 'Lége
 const PLAYLIST = [
   // { title: 'Mon morceau', src: 'music/mon-morceau.mp3' },
   { title: 'Son of Flynn', src: 'music/The Son of Flynn (From TRON LegacyScore).mp3' },
-  { title: 'Digital Love', src: 'Daft Punk - Digital Love (Official Audio).mp3' },
+  { title: 'Digital Love', src: 'music/Daft Punk - Digital Love (Official Audio).mp3' },
   { title: 'Golden Brown', src: 'music/The Stranglers - Golden Brown.mp3' },
   { title: 'Shooting Stars', src: 'music/Bag Raiders - Shooting Stars (Official Video).mp3' },
 ];
