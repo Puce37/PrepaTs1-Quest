@@ -8,7 +8,7 @@
    - Fichier créé dans « Mon Drive » : QuestLog-sauvegarde.json
    Étapes de configuration : voir LISEZMOI.md
    ========================================================== */
-const GOOGLE_CLIENT_ID = 'COLLE_ICI_TON_ID_CLIENT.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '286427687469-llqh1v5eqsoqk3ddqrc6p0anf9kmfo5j.apps.googleusercontent.com';
 const DRIVE_FILE = 'QuestLog-sauvegarde.json';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file openid profile';
 const FLAG = 'questlog.google';
