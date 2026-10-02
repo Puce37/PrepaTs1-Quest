@@ -14,6 +14,7 @@ const RANKS = ['Novice', 'Apprenti', 'Aventurier', 'Vétéran', 'Héros', 'Lége
    (Tu peux aussi en ajouter depuis le lecteur avec le bouton « Ajouter des MP3 ».) */
 const PLAYLIST = [
   // { title: 'Mon morceau', src: 'music/mon-morceau.mp3' },
+  { title: 'Son of Flynn', src: 'music/The Son of Flynn (From TRON LegacyScore).mp3' }
 ];
 
 const CAT = {
