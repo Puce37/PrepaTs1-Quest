@@ -14,7 +14,6 @@ const RANKS = ['Novice', 'Apprenti', 'Aventurier', 'Vétéran', 'Héros', 'Lége
    (Tu peux aussi en ajouter depuis le lecteur avec le bouton « Ajouter des MP3 ».) */
 const PLAYLIST = [
   // { title: 'Mon morceau', src: 'music/mon-morceau.mp3' },
-  { title: 'Son of Flynn', src: 'music/The Son of Flynn (From TRON LegacyScore).mp3' },
 ];
 
 const CAT = {
@@ -152,7 +151,7 @@ function render() {
     .filter(x => !x.del && x.done === (view === 'done') && (cat === 'all' || x.cat === cat) && (x.title + ' ' + x.desc).toLowerCase().includes(q))
     .sort((a, b) => view === 'done'
       ? (b.doneAt || 0) - (a.doneAt || 0)
-      : ((b.cat === 'urg') - (a.cat === 'urg')) || b.at - a.at);
+      : ((b.cat === 'urg') - (a.cat === 'urg')) || (dl(a) - dl(b)) || b.at - a.at);
 
   $('list').innerHTML = list.length ? list.map(x => {
     const d = DIF[x.dif], c = CAT[x.cat];
@@ -163,6 +162,7 @@ function render() {
     <div class="tags">
       <span class="tg${x.cat === 'urg' && !x.done ? ' pulse' : ''}">${c[0]} ${c[1]}</span>
       <span class="tg" style="color:${d.color}">${trophy(x.dif, 'tro')} ${d.label} · +${d.xp} XP</span>
+      ${dueTag(x)}
     </div>
   </div>
   <button class="del" data-act="del" aria-label="Supprimer la quête">✕</button>
@@ -196,10 +196,11 @@ $('dif').addEventListener('click', e => {
 $('f').addEventListener('submit', e => {
   e.preventDefault();
   const t = $('t').value.trim(); if (!t) return;
-  const x = { id: Date.now() + '-' + Math.floor(Math.random() * 999), title: t, cat: $('c').value, dif: selDif, desc: $('ds').value.trim(), done: false, at: Date.now(), upd: Date.now() };
+  const x = { id: Date.now() + '-' + Math.floor(Math.random() * 999), title: t, cat: $('c').value, dif: selDif, desc: $('ds').value.trim(), done: false, at: Date.now(), upd: Date.now(), due: selDate, dueT: selDate ? selTime : '' };
   S.quests.unshift(x);
   fresh = x.id; view = 'todo'; cat = 'all'; q = ''; $('q').value = '';
   $('t').value = ''; $('ds').value = '';
+  selDate = selTime = ''; $('ct').value = ''; dlbl(); calOpen(false);
   save(); snd('add'); render();
 });
 
@@ -253,9 +254,32 @@ function sndBtn() { $('snd').textContent = S.sound ? '🔊' : '🔇'; $('snd').c
 $('snd').addEventListener('click', () => { S.sound = !S.sound; save(); sndBtn(); snd('add'); });
 
 /* ==========================================================
-   AMBIANCE DES THÈMES (feuilles, traînées Tron, donjon)
+   AMBIANCE DES THÈMES (feuilles, traînées Tron, ville de nuit)
    ========================================================== */
 const rnd = (a, b) => a + Math.random() * (b - a);
+
+/* Ville de nuit : étoiles, lune et deux plans de buildings générés au hasard (SVG) */
+function cityHTML() {
+  const W = 1600, pal = ['#ffd98a', '#ffb3e6', '#b9a0ff', '#8fe3ff'];
+  const layer = (fill, hMin, hMax, litP, op) => {
+    let x = -10, s = '';
+    while (x < W) {
+      const bw = Math.round(rnd(38, 100)), bh = Math.round(rnd(hMin, hMax)), y = 300 - bh;
+      s += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${fill}"/>`;
+      if (bh > hMax * .85) s += `<rect x="${x + bw / 2 - 1}" y="${y - 24}" width="2" height="24" fill="${fill}"/><circle class="bl" cx="${x + bw / 2}" cy="${y - 25}" r="2.4" fill="#ff4d6d" style="animation-delay:-${rnd(0, 3).toFixed(1)}s"/>`;
+      for (let wx = x + 7; wx < x + bw - 8; wx += 13)
+        for (let wy = y + 10; wy < 290; wy += 16)
+          if (Math.random() < litP)
+            s += `<rect${Math.random() < .07 ? ` class="tw" style="animation-delay:-${rnd(0, 4).toFixed(1)}s"` : ''} x="${wx}" y="${wy}" width="5" height="7" fill="${pal[Math.floor(rnd(0, pal.length))]}" opacity="${op}"/>`;
+      x += bw + Math.round(rnd(0, 6));
+    }
+    return `<svg class="sk" viewBox="0 0 ${W} 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${s}</svg>`;
+  };
+  let stars = '';
+  for (let i = 0; i < 46; i++)
+    stars += `<i class="star" style="left:${rnd(0, 100)}%;top:${rnd(0, 55)}%;--s:${rnd(1, 2.6).toFixed(1)}px;animation-duration:${rnd(2, 5).toFixed(1)}s;animation-delay:-${rnd(0, 5).toFixed(1)}s"></i>`;
+  return stars + '<div class="moon"></div><i class="haze"></i><i class="shoot"></i>' + layer('#2b1a55', 120, 240, .17, .55) + layer('#150c2e', 60, 170, .24, 1);
+}
 function fx(t) {
   const f = $('fx'); f.className = t; let h = '';
   if (t === 'forest') for (let i = 0; i < 26; i++)
@@ -264,8 +288,7 @@ function fx(t) {
     const v = i % 3 === 2, col = i % 2 ? '#ff7a1a' : '#00e5ff';
     h += `<i class="trail${v ? ' v' : ''}" style="--tc:${col};${v ? 'left' : 'top'}:${rnd(3, 97)}%;animation-duration:${rnd(3, 7)}s;animation-delay:-${rnd(0, 7)}s"></i>`;
   }
-  if (t === 'dungeon') h = '<b class="beam"></b><b class="post l"></b><b class="post r"></b>'
-    + '<div class="torch l"><i class="flame"></i><b></b></div><div class="torch r"><i class="flame"></i><b></b></div>';
+  if (t === 'city') h = cityHTML();
   f.innerHTML = h;
 }
 
@@ -276,6 +299,7 @@ function fx(t) {
    (réglages du lecteur : saveLocal, jamais envoyés sur Drive)
    ========================================================== */
 const au = new Audio();
+const fill = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%');
 let tracks = PLAYLIST.map(t => ({ title: t.title, src: t.src, id: null })), cur = -1;
 
 const idb = () => new Promise((ok, ko) => {
@@ -296,6 +320,7 @@ function drawMusic() {
   $('np').textContent = t ? t.title : 'Aucune piste';
   $('pp').textContent = au.paused ? '▶' : '⏸';
   $('mus').classList.toggle('on', !au.paused);
+  $('mp').classList.toggle('playing', !au.paused);
   $('tl').innerHTML = tracks.length ? tracks.map((t, i) =>
     `<div class="tk${i === cur ? ' on' : ''}" data-i="${i}"><span>${i === cur && !au.paused ? '🔊' : '🎶'} ${esc(t.title)}</span>${t.id != null ? `<button data-rm="${i}" aria-label="Retirer la piste">✕</button>` : ''}</div>`).join('')
     : '<div class="empty">Aucune musique. Ajoute des MP3 avec le bouton ci-dessous.</div>';
@@ -312,14 +337,14 @@ const toggleMusic = () => cur < 0 ? load(0, true) : au.paused ? au.play().catch(
 au.addEventListener('play', drawMusic);
 au.addEventListener('pause', drawMusic);
 au.addEventListener('ended', () => load(cur + 1, true));
-au.addEventListener('timeupdate', () => { if (au.duration) $('sk').value = au.currentTime / au.duration * 100; });
+au.addEventListener('timeupdate', () => { if (au.duration) { $('sk').value = au.currentTime / au.duration * 100; fill($('sk')); } });
 au.addEventListener('error', () => { if (tracks[cur]) $('np').textContent = '⚠️ Fichier introuvable : ' + tracks[cur].title; });
 
 $('pp').onclick = toggleMusic;
 $('nx').onclick = () => load(cur + 1, true);
 $('pv').onclick = () => load(cur < 0 ? 0 : cur - 1, true);
-$('sk').oninput = e => { if (au.duration) au.currentTime = e.target.value / 100 * au.duration; };
-$('vol').oninput = e => { au.volume = S.vol = +e.target.value; saveLocal(); };
+$('sk').oninput = e => { if (au.duration) au.currentTime = e.target.value / 100 * au.duration; fill(e.target); };
+$('vol').oninput = e => { au.volume = S.vol = +e.target.value; fill(e.target); saveLocal(); };
 $('mus').onclick = () => { S.mp = !S.mp; $('mp').hidden = !S.mp; saveLocal(); };
 $('add').onclick = () => $('mf').click();
 
@@ -346,13 +371,83 @@ $('tl').addEventListener('click', async e => {
 });
 
 async function initMusic() {
-  au.volume = S.vol; $('vol').value = S.vol; $('mp').hidden = !S.mp;
+  au.volume = S.vol; $('vol').value = S.vol; fill($('vol')); $('mp').hidden = !S.mp;
   try { (await dbRun('readonly', s => s.getAll())).forEach(m => tracks.push({ title: m.title, src: URL.createObjectURL(m.blob), id: m.id })); } catch (er) {}
   if (tracks[S.track]) load(S.track, false); else drawMusic();
 }
 
 /* ==========================================================
+   ÉCHÉANCES : calendrier + temps restant
+   - due = « AAAA-MM-JJ », dueT = « HH:MM » (facultatif, sinon 23:59)
+   ========================================================== */
+const DAY = 864e5, pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dl = x => x.due ? new Date(`${x.due}T${x.dueT || '23:59'}`).getTime() : Infinity;
+const dlab = (d, t, long) => new Date(d + 'T12:00').toLocaleDateString('fr-FR', long ? { weekday: 'long', day: 'numeric', month: 'long' } : { weekday: 'short', day: 'numeric', month: 'short' }) + (t ? ' · ' + t : '');
+
+function remain(end) {
+  const ms = end - Date.now(), m = Math.floor(Math.abs(ms) / 6e4), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  const t = d >= 7 ? `${d} j` : d >= 1 ? `${d} j ${h % 24} h` : h >= 1 ? `${h} h ${pad(m % 60)}` : `${Math.max(m, 1)} min`;
+  return { st: ms < 0 ? 'late' : ms < DAY ? 'hot' : ms < 3 * DAY ? 'soon' : 'ok', txt: (ms < 0 ? 'En retard de ' : 'Reste ') + t };
+}
+function dueTag(x) {
+  if (!x.due) return '';
+  const lab = dlab(x.due, x.dueT);
+  if (x.done) return `<span class="tg due done" data-id="${x.id}">📅 ${lab} · ${(x.doneAt || 0) <= dl(x) ? '✅ dans les temps' : '⏱ terminée en retard'}</span>`;
+  const r = remain(dl(x));
+  return `<span class="tg due ${r.st}" data-id="${x.id}" title="Échéance : ${lab}">${r.st === 'late' ? '🔥' : '⏳'} ${r.txt} <small>· ${lab}</small></span>`;
+}
+/* Le temps restant se met à jour tout seul, sans recharger la liste */
+setInterval(() => {
+  document.querySelectorAll('#list .due:not(.done)').forEach(el => { const x = S.quests.find(v => v.id === el.dataset.id); if (x) el.outerHTML = dueTag(x); });
+  dlbl();
+}, 30000);
+
+/* ----- Calendrier (sélecteur d'échéance du formulaire) ----- */
+let selDate = '', selTime = '', calM = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function dlbl() {
+  $('dbtn').classList.toggle('set', !!selDate);
+  $('dlbl').textContent = selDate ? dlab(selDate, selTime, true) : 'Ajouter une échéance';
+  const r = selDate ? remain(dl({ due: selDate, dueT: selTime })) : null;
+  $('cr').hidden = !r;
+  if (r) { $('cr').className = 'cal-r ' + r.st; $('cr').textContent = '⏳ ' + r.txt; }
+}
+function calDraw() {
+  const y = calM.getFullYear(), m = calM.getMonth(), today = ymd(new Date());
+  const start = new Date(y, m, 1 - (new Date(y, m, 1).getDay() + 6) % 7);      // semaine commençant le lundi
+  const has = new Set(S.quests.filter(x => !x.del && !x.done && x.due).map(x => x.due));  // jours qui ont déjà une quête
+  let h = '';
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), k = ymd(d);
+    h += `<button type="button" class="dy${d.getMonth() !== m ? ' o' : ''}${k === today ? ' td' : ''}${k === selDate ? ' sel' : ''}${has.has(k) ? ' has' : ''}" data-k="${k}">${d.getDate()}</button>`;
+  }
+  $('cm').textContent = calM.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  $('cg').innerHTML = h;
+}
+function calOpen(open) {
+  $('cal').hidden = !open; $('dbtn').setAttribute('aria-expanded', open);
+  if (open) { const b = selDate ? new Date(selDate + 'T12:00') : new Date(); calM = new Date(b.getFullYear(), b.getMonth(), 1); calDraw(); }
+}
+const goDate = d => { selDate = ymd(d); calM = new Date(d.getFullYear(), d.getMonth(), 1); calDraw(); dlbl(); };
+
+$('dbtn').onclick = () => calOpen($('cal').hidden);
+$('cp').onclick = () => { calM = new Date(calM.getFullYear(), calM.getMonth() - 1, 1); calDraw(); };
+$('cn').onclick = () => { calM = new Date(calM.getFullYear(), calM.getMonth() + 1, 1); calDraw(); };
+$('cg').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) goDate(new Date(b.dataset.k + 'T12:00')); });
+$('cal').addEventListener('click', e => {
+  const c = e.target.closest('[data-d]'); if (!c) return;
+  const d = new Date(); d.setDate(d.getDate() + +c.dataset.d); goDate(d);
+});
+$('ct').oninput = e => { selTime = e.target.value; dlbl(); };
+$('cc').onclick = () => { selDate = selTime = ''; $('ct').value = ''; calDraw(); dlbl(); };
+$('co').onclick = () => calOpen(false);
+document.addEventListener('click', e => { if (!$('cal').hidden && !e.composedPath().some(n => n.id === 'cal' || n.id === 'dbtn')) calOpen(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('cal').hidden) { calOpen(false); $('dbtn').focus(); } });
+
+/* ==========================================================
    DÉMARRAGE
    ========================================================== */
+if (S.theme === 'dungeon' || S.theme === 'synth') S.theme = 'city';                 // l'ancien thème Donjon est devenu Ville de nuit
 if (S.theme) document.documentElement.dataset.theme = S.theme;
 theme(); sndBtn(); buildPicker(); render(); initMusic();
