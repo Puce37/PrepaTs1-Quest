@@ -8,7 +8,7 @@
    ========================================================== */
 const KEY = 'questlog.v1';
 const XP_PAR_NIVEAU = 100;
-const RANKS = ['Novice', 'Apprenti', 'Aventurier', 'Vétéran', 'Héros', 'Légende'];
+const RANKS = ['Noob', 'Pro', 'Hacker', 'Master', 'Legend', 'God'];
 
 /* Musiques fournies avec l'appli : place tes MP3 dans /music puis liste-les ici.
    (Tu peux aussi en ajouter depuis le lecteur avec le bouton « Ajouter des MP3 ».) */
@@ -29,9 +29,9 @@ const CAT = {
 
 const DIF = {
   easy: { label: 'Facile',    xp: 25,  color: '#cd7f32', trophy: 'Bronze',  img: 'images/bronze.png',  fb: '🥉' },
-  mid:  { label: 'Moyenne',   xp: 50,  color: '#c9d2de', trophy: 'Argent',  img: 'images/argent.png',  fb: '🥈' },
+  mid:  { label: 'Moyen',   xp: 50,  color: '#c9d2de', trophy: 'Argent',  img: 'images/argent.png',  fb: '🥈' },
   hard: { label: 'Difficile', xp: 100, color: '#ffc83d', trophy: 'Or',      img: 'images/or.png',      fb: '🥇' },
-  epic: { label: 'Épique',    xp: 250, color: '#72dcff', trophy: 'Platine', img: 'images/platine.png', fb: '💎' }
+  epic: { label: 'Extrême',    xp: 250, color: '#72dcff', trophy: 'Platine', img: 'images/platine.png', fb: '💎' }
 };
 
 /* ==========================================================
