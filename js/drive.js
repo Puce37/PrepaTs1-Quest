@@ -14,8 +14,20 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.file openid profile';
 const FLAG = 'questlog.google';
 const API = 'https://www.googleapis.com';
 
-let gClient, gTok = null, gExp = 0, gPend = null;
+const TOK_KEY = 'questlog.gtok', USER_KEY = 'questlog.guser';
+let gClient, gTok = null, gExp = 0, gPend = null, gNeed = false;
 let gOn = false, gUser = null, gFileId = null, pushT = 0, busy = false, again = false;
+
+/* ---------- Session mémorisée (le compte reste connecté après un rechargement) ----------
+   - profil (nom, photo) : localStorage → affiché tout de suite au rechargement
+   - jeton d'accès (1 h)  : sessionStorage → réutilisé tant qu'il est valide
+   - jeton expiré : renouvelé au premier clic (Google exige un geste de l'utilisateur) */
+function persist() {
+  try {
+    if (gTok) sessionStorage.setItem(TOK_KEY, JSON.stringify({ t: gTok, e: gExp }));
+    if (gUser) localStorage.setItem(USER_KEY, JSON.stringify({ sub: gUser.sub, name: gUser.name, picture: gUser.picture }));
+  } catch (e) {}
+}
 
 /* ---------- Interface ---------- */
 const gst = (msg, err) => { const e = $('gstat'); if (e) { e.textContent = msg; e.classList.toggle('err', !!err); } };
@@ -23,9 +35,10 @@ const gst = (msg, err) => { const e = $('gstat'); if (e) { e.textContent = msg; 
 function ui() {
   $('sync').innerHTML = gOn && gUser
     ? `<img class="av" src="${esc(gUser.picture || '')}" alt="" referrerpolicy="no-referrer"><strong>${esc(gUser.name || 'Connecté')}</strong>
-       <span id="gstat" class="gstat" role="status"></span><button class="gbtn" id="gout" type="button">Se déconnecter</button>`
+       <span id="gstat" class="gstat" role="status"></span>${gNeed ? '<button class="gbtn" id="gren" type="button">Reprendre</button>' : ''}<button class="gbtn" id="gout" type="button">Se déconnecter</button>`
     : `<button class="gbtn" id="gin" type="button">☁️ Se connecter avec Google</button>
        <span id="gstat" class="gstat" role="status">Sauvegarde locale uniquement</span>`;
+  if (typeof setAvatar === 'function') setAvatar(gOn && gUser ? gUser.picture : '');   // photo dans le cercle de niveau
 }
 
 /* ---------- Authentification ---------- */
@@ -46,15 +59,20 @@ function gClientInit() {
       const p = gPend; gPend = null;
       if (r.error) return p && p.rej(r);
       gTok = r.access_token; gExp = Date.now() + (r.expires_in - 60) * 1000;
+      persist();
       p && p.res(gTok);
     },
     error_callback: e => { const p = gPend; gPend = null; p && p.rej(e); }
   });
 }
 
-function gToken(prompt) {
-  if (gTok && Date.now() < gExp) return Promise.resolve(gTok);
-  return new Promise((res, rej) => { gPend = { res, rej }; gClient.requestAccessToken({ prompt: prompt || '' }); });
+async function gToken(prompt) {
+  if (gTok && Date.now() < gExp) return gTok;
+  await gReady(); gClientInit();                         // fonctionne aussi après un rechargement de page
+  return new Promise((res, rej) => {
+    gPend = { res, rej };
+    gClient.requestAccessToken({ prompt: prompt || '', ...(!prompt && gUser && gUser.sub ? { hint: gUser.sub } : {}) });
+  });
 }
 
 async function gfetch(url, opt = {}, retry = true) {
@@ -72,9 +90,10 @@ async function gLogin(silent) {
     gst('Connexion…');
     await gReady(); gClientInit();
     await gToken(silent ? '' : 'select_account');
-    gOn = true;
+    gOn = true; gNeed = false;
     try { localStorage.setItem(FLAG, '1'); } catch (e) {}
-    gUser = await (await gfetch(API + '/oauth2/v3/userinfo')).json().catch(() => ({}));
+    const u = await (await gfetch(API + '/oauth2/v3/userinfo')).json().catch(() => ({}));
+    gUser = { sub: u.sub, name: u.name, picture: u.picture }; persist();
     ui();
     await sync();
   } catch (e) {
@@ -86,8 +105,8 @@ async function gLogin(silent) {
 
 function gLogout() {
   clearTimeout(pushT);
-  gTok = null; gOn = false; gUser = null; gFileId = null;
-  try { localStorage.removeItem(FLAG); } catch (e) {}
+  gTok = null; gOn = false; gUser = null; gFileId = null; gNeed = false;
+  try { localStorage.removeItem(FLAG); localStorage.removeItem(USER_KEY); sessionStorage.removeItem(TOK_KEY); } catch (e) {}
   ui();
 }
 
@@ -155,8 +174,8 @@ async function sync() {
       if (e.message === 'Drive 404') { gFileId = null; again = true; }
       else gst('⚠️ Erreur de synchronisation (' + e.message + ')', true);
     } else {
-      gOn = false; ui();
-      gst('Session expirée : reconnecte-toi pour reprendre la synchro.', true);
+      gNeed = true; ui();                                // on reste connecté : il suffit de renouveler le jeton
+      gst('Session expirée : appuie sur « Reprendre ».', true);
     }
   } finally {
     busy = false;
@@ -176,8 +195,35 @@ function cloudPush() {
 $('sync').addEventListener('click', e => {
   if (e.target.closest('#gin')) gLogin(false);
   else if (e.target.closest('#gout')) gLogout();
+  else if (e.target.closest('#gren')) renew();
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && gOn) sync(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && gOn && gTok && Date.now() < gExp) sync(); });
+
+/* Renouvelle le jeton (doit partir d'un clic) puis resynchronise */
+async function renew() {
+  try {
+    gst('Reconnexion…');
+    await gToken('');
+    gNeed = false; persist(); ui();
+    await sync();
+  } catch (e) {
+    gNeed = true; ui();
+    gst('Session expirée : appuie sur « Reprendre » (ou reconnecte-toi).', true);
+  }
+}
+
+/* Au chargement : on retrouve le compte au lieu de redemander la connexion */
+function restore() {
+  let u = null;
+  try { if (!localStorage.getItem(FLAG)) return; u = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { return; }
+  if (!u) return;                                        // ancienne session sans profil mémorisé : écran de connexion
+  gUser = u; gOn = true;
+  try { const k = JSON.parse(sessionStorage.getItem(TOK_KEY) || 'null'); if (k && k.e > Date.now()) { gTok = k.t; gExp = k.e; } } catch (e) {}
+  if (gTok) { ui(); sync(); return; }                    // jeton encore valide : synchro immédiate
+  gNeed = true; ui();
+  gst('Session à renouveler : touche l’écran pour te reconnecter.');
+  document.addEventListener('click', e => { if (gNeed && !e.target.closest('#gout,#gren')) renew(); }, { once: true, capture: true });
+}
 
 ui();
-try { if (localStorage.getItem(FLAG)) gLogin(true); } catch (e) {}
+restore();

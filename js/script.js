@@ -7,7 +7,17 @@
    "fb" = emoji de secours si l'image est introuvable.
    ========================================================== */
 const KEY = 'questlog.v1';
-const XP_PAR_NIVEAU = 100;
+/* Progression : passer du niveau N au niveau N+1 demande 100 × N XP
+   (niveau 1 → 100 XP, niveau 2 → 200 XP, niveau 3 → 300 XP…) */
+const XP_MULT = 100;
+const lvlStart = L => XP_MULT * L * (L - 1) / 2;        // XP cumulée pour ATTEINDRE le niveau L
+const lvlNeed = L => XP_MULT * L;                       // XP à gagner pendant le niveau L
+function lvlOf(xp) {
+  let L = Math.max(1, Math.floor((1 + Math.sqrt(1 + 8 * xp / XP_MULT)) / 2));
+  while (lvlStart(L + 1) <= xp) L++;
+  while (L > 1 && lvlStart(L) > xp) L--;
+  return L;
+}
 const RANKS = ['Noob', 'Pro', 'Hacker', 'Master', 'Legend', 'God'];
 
 /* Musiques fournies avec l'appli : place tes MP3 dans /music puis liste-les ici.
@@ -151,13 +161,20 @@ function burst(x, y, col, txt) {
 /* ==========================================================
    RENDU
    ========================================================== */
+/* Photo du compte Google dans le cercle (appelée par drive.js) ; sinon silhouette */
+function setAvatar(url) {
+  const lv = $('lv');
+  if (url) {
+    if (lv.dataset.src !== url) { lv.dataset.src = url; lv.innerHTML = `<img class="lvp" src="${esc(url)}" alt="" referrerpolicy="no-referrer" data-fb="👤">`; }
+  } else { delete lv.dataset.src; lv.innerHTML = '<span class="lvp">👤</span>'; }
+}
 function head() {
-  const xp = xpTotal(), lvl = Math.floor(xp / XP_PAR_NIVEAU) + 1, p = xp % XP_PAR_NIVEAU;
+  const xp = xpTotal(), lvl = lvlOf(xp), need = lvlNeed(lvl), p = xp - lvlStart(lvl);
   const vis = S.quests.filter(x => !x.del), tot = vis.length, dn = vis.filter(x => x.done).length;
-  $('lv').textContent = lvl;
+  $('lvn').textContent = lvl;
   $('rank').textContent = RANKS[Math.min(Math.floor((lvl - 1) / 3), RANKS.length - 1)];
-  $('xpt').textContent = `· ${p} / ${XP_PAR_NIVEAU} XP (total ${xp})`;
-  $('bar').style.width = p + '%';
+  $('xpt').textContent = `· ${p} / ${need} XP (total ${xp})`;
+  $('bar').style.width = (p / need * 100) + '%';
   $('s1').textContent = tot;
   $('s2').textContent = dn;
   $('s3').textContent = (tot ? Math.round(dn / tot * 100) : 0) + '%';
@@ -239,12 +256,12 @@ $('list').addEventListener('click', e => {
     save(); snd('del'); setTimeout(render, 300);
 
   } else if (!x.done) {                                // Validation
-    const d = DIF[x.dif], r = b.getBoundingClientRect(), oldL = Math.floor(xpTotal() / XP_PAR_NIVEAU) + 1;
+    const d = DIF[x.dif], r = b.getBoundingClientRect(), oldL = lvlOf(xpTotal());
     el.classList.add('leave');
     burst(r.left + 13, r.top + 13, d.color, '+' + d.xp + ' XP');
     x.done = true; x.doneAt = x.upd = Date.now();
     save(); snd('done'); head();
-    const nl = Math.floor(xpTotal() / XP_PAR_NIVEAU) + 1;
+    const nl = lvlOf(xpTotal());
     if (nl > oldL) setTimeout(() => {
       snd('lvl');
       const l = $('lv').getBoundingClientRect();
@@ -287,11 +304,11 @@ const f1 = (a, b) => rnd(a, b).toFixed(1);
 const NP = ['#ffd98a', '#ffb3e6', '#b9a0ff', '#8fe3ff'];
 
 /* Skyline SVG : immeubles + fenêtres allumées */
-function skyline(fill, hMin, hMax, litP, op, pal, cls = '') {
+function skyline(fill, hMin, hMax, litP, op, pal, cls = '', stroke = '') {
   const W = 1600; let x = -10, s = '';
   while (x < W) {
     const bw = Math.round(rnd(38, 100)), bh = Math.round(rnd(hMin, hMax)), y = 300 - bh;
-    s += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${fill}"/>`;
+    s += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="1.3"` : ''}/>`;
     if (bh > hMax * .85) s += `<rect x="${x + bw / 2 - 1}" y="${y - 24}" width="2" height="24" fill="${fill}"/><circle class="bl" cx="${x + bw / 2}" cy="${y - 25}" r="2.4" fill="#ff4d6d" style="animation-delay:-${f1(0, 3)}s"/>`;
     for (let wx = x + 7; wx < x + bw - 8; wx += 13)
       for (let wy = y + 10; wy < 290; wy += 16)
@@ -304,6 +321,7 @@ function skyline(fill, hMin, hMax, litP, op, pal, cls = '') {
 
 /* Arbres en silhouette : sapins (3 étages) et feuillus, sur un plan de profondeur */
 function trees(fill, trunk, n, hMin, hMax, op) {
+  n = Math.round(n * (innerWidth < 700 ? 2.2 : 1));
   let s = ''; const b = 400;
   for (let i = 0; i < n; i++) {
     const x = rnd(0, 1600), h = rnd(hMin, hMax), w = h * .28;
@@ -323,12 +341,18 @@ function trees(fill, trunk, n, hMin, hMax, op) {
 const rain = n => { let h = ''; for (let i = 0; i < n; i++) h += `<i class="drop" style="left:${f1(-5, 105)}%;height:${Math.round(rnd(16, 34))}px;opacity:${rnd(.25, .6).toFixed(2)};animation-duration:${rnd(.45, .9).toFixed(2)}s;animation-delay:-${rnd(0, 1).toFixed(2)}s"></i>`; return h; };
 
 function tronHTML() {
-  let h = '<div class="tfloor"></div><i class="thz"></i>';
-  for (let i = 0; i < 9; i++) {
-    const v = i % 3 === 2, col = i % 2 ? '#ff7a1a' : '#00e5ff';
-    h += `<i class="trail${v ? ' v' : ''}" style="--tc:${col};${v ? 'left' : 'top'}:${f1(3, 97)}%;animation-duration:${f1(3, 7)}s;animation-delay:-${f1(0, 7)}s"></i>`;
+  let w = '';
+  const cx = Math.round(innerWidth * 1.1 / 64) * 64;   // centre du sol, aligné sur la grille
+  for (let i = 0; i < 6; i++) {                        // murs de lumière qui traversent, posés sur les lignes de la grille
+    const col = i % 2 ? '#ff7a1a' : '#00e5ff';
+    w += `<i class="lw h" style="--tc:${col};top:${64 * Math.round(rnd(20, 31))}px;animation-duration:${f1(5, 11)}s;animation-delay:-${f1(0, 11)}s"></i>`;
   }
-  return h;
+  for (let i = 0; i < 6; i++) {                        // murs qui foncent vers nous ou s'éloignent
+    const col = i % 2 ? '#00e5ff' : '#ff7a1a';
+    w += `<i class="lw v" style="--tc:${col};left:${cx + 64 * Math.round(rnd(-12, 12))}px;animation-duration:${f1(3.5, 7)}s;animation-delay:-${f1(0, 7)}s${i % 2 ? ';animation-direction:reverse' : ''}"></i>`;
+  }
+  return '<i class="tdisc"></i>' + skyline('#02101c', 70, 170, .2, .9, ['#00e5ff', '#7df9ff', '#ff7a1a'], 'th', 'rgba(0,229,255,.55)')
+    + `<div class="tfloor"><div class="tpl"><div class="tgrid">${w}</div></div></div><i class="thz"></i>`;
 }
 function forestHTML() {
   let h = '';
@@ -359,7 +383,7 @@ function dungeonHTML() {
   const torch = (side, top) => {
     let e = '';
     for (let i = 0; i < 7; i++) e += `<u class="ember" style="--x:${Math.round(rnd(-22, 22))}px;animation-duration:${f1(1.8, 3.4)}s;animation-delay:-${f1(0, 3)}s"></u>`;
-    return `<div class="torch ${side}" style="top:${top}%"><i class="tl"></i><div class="flame"><i></i></div><b></b>${e}</div>`;
+    return `<div class="torch ${side}" style="top:${top}%"><i class="tgl"></i><div class="flame"><i></i></div><b></b>${e}</div>`;
   };
   return '<b class="beam"></b><b class="post l"></b><b class="post r"></b>' + torch('l', 22) + torch('r', 22) + torch('l', 64) + torch('r', 64);
 }
@@ -371,36 +395,83 @@ function stormHTML() {
     return `<i class="flash" style="--fx:${x.toFixed(0)}%;${st}"></i><svg class="bolt" style="left:${x.toFixed(0)}%;${st}" viewBox="0 0 90 400" preserveAspectRatio="none"><polyline points="${pts}"/></svg>`;
   };
   const tree = '<svg class="tree" viewBox="0 0 200 270" aria-hidden="true"><g fill="#03050a" stroke="#03050a"><path d="M92 270 C96 215 90 185 84 150 L118 150 C112 185 106 215 110 270 Z" stroke="none"/><path d="M100 175 L62 128 M104 168 L146 120 M100 150 L98 100" stroke-width="7" fill="none" stroke-linecap="round"/><g stroke="none"><circle cx="100" cy="92" r="46"/><circle cx="62" cy="120" r="32"/><circle cx="140" cy="118" r="34"/><circle cx="82" cy="62" r="28"/><circle cx="124" cy="58" r="28"/><circle cx="48" cy="96" r="22"/></g></g></svg>';
-  return '<i class="cl"></i><i class="cl c2"></i>' + bolt(rnd(12, 40), 8.3, rnd(0, 8)) + bolt(rnd(55, 88), 12.7, rnd(0, 12)) + '<div class="hill"></div>' + tree;
+  return '<i class="cl"></i><i class="cl c2"></i>' + bolt(rnd(12, 40), 8.3, rnd(0, 8)) + bolt(rnd(55, 88), 12.7, rnd(0, 12)) + trees('#0b1424', '#0b1424', 28, 100, 240, .9) + trees('#070d18', '#070d18', 20, 130, 280, .95) + bareTrees('#04070d', 9, 150, 330, 1) + trees('#04070d', '#04070d', 14, 150, 310, 1) + '<div class="hill"></div>' + tree;
 }
 function roomsHTML() {
   let p = '';
   for (let i = 0; i < 7; i++) p += `<i class="pan" style="animation-duration:${f1(3, 11)}s;animation-delay:-${f1(0, 9)}s"></i>`;
   return `<div class="ceil">${p}</div><i class="hum"></i><i class="grain"></i>`;
 }
-function motoHTML() {
-  const cols = ['#ff4fa3', '#35d0ff', '#ffd166', '#b388ff'];
-  let h = '';
-  for (let i = 0; i < 18; i++) h += `<i class="bk" style="left:${f1(0, 100)}%;bottom:${f1(14, 42)}%;width:${Math.round(rnd(6, 16))}px;height:${Math.round(rnd(6, 16))}px;background:${cols[i % 4]};opacity:.5;animation-duration:${f1(3, 6)}s;animation-delay:-${f1(0, 5)}s"></i>`;
+/* La moto est dans le calque AVANT (#fx2) pour rester nette, même derrière des cartes floutées */
+function motoBike() {
   const wheel = cx => `<g class="wh"><circle cx="${cx}" cy="68" r="20" fill="#08080f" stroke="#8d93d6" stroke-width="3"/><path d="M${cx} 50V86M${cx - 18} 68H${cx + 18}M${cx - 13} 55L${cx + 13} 81M${cx + 13} 55L${cx - 13} 81" stroke="#4a4f8a" stroke-width="1.5"/></g>`;
-  const bike = `<svg viewBox="0 0 160 92" aria-hidden="true">${wheel(36)}${wheel(126)}
+  return `<div class="moto"><i class="hl"></i><i class="tl2"></i><svg viewBox="0 0 160 92" aria-hidden="true">
+<ellipse cx="82" cy="89" rx="68" ry="3.5" style="fill:var(--ac)" opacity=".35"/>
+${wheel(36)}${wheel(126)}
 <path d="M36 68 L52 36" stroke="#1b1d33" stroke-width="5" stroke-linecap="round"/><path d="M48 34 L58 31" stroke="#1b1d33" stroke-width="4" stroke-linecap="round"/>
-<path d="M84 66 L126 68" stroke="#1b1d33" stroke-width="5" stroke-linecap="round"/>
+<path d="M84 66 L126 68" stroke="#1b1d33" stroke-width="5" stroke-linecap="round"/><path d="M70 71 L124 75" stroke="#2a2d55" stroke-width="3" stroke-linecap="round"/>
 <path d="M56 58 L74 48 L110 48 L122 60 L116 72 L70 72 Z" fill="#10111e" stroke="#33386a" stroke-width="1.5"/>
 <path d="M60 46 Q76 28 100 40 L104 48 L64 50 Z" fill="#1a1c36" style="stroke:var(--ac)" stroke-width="1.6"/>
+<path d="M52 40 L62 27 L68 30 L60 44 Z" fill="#14162b" style="stroke:var(--ac2)" stroke-width="1"/>
 <path d="M100 40 L128 38 L134 46 L104 48 Z" fill="#0b0c16"/>
 <path d="M108 42 L96 56 L88 66" stroke="#0f1020" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M106 42 L112 34 L84 16 L74 22 Z" fill="#0f1020"/>
 <path d="M82 20 L66 28 L56 32" stroke="#10111e" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="76" cy="10" r="9" fill="#0b0c16" style="stroke:var(--ac2)" stroke-width="1.5"/>
-<circle class="hlb" cx="46" cy="40" r="4" fill="#fff6c8"/><rect class="tlb" x="132" y="40" width="5" height="3" fill="#ff2a4a"/></svg>`;
-  return h + skyline('#14122b', 90, 200, .22, .8, cols, 'up') + '<div class="mroad"></div>' + `<div class="moto"><i class="hl"></i><i class="tl2"></i>${bike}</div>`;
+<circle class="hlb" cx="46" cy="40" r="4" fill="#fff6c8"/><rect class="tlb" x="132" y="40" width="5" height="3" fill="#ff2a4a"/></svg></div>`;
+}
+function motoHTML() {
+  const cols = ['#ff4fa3', '#35d0ff', '#ffd166', '#b388ff'], base = 'max(12vh,70px)';
+  let bk = '';
+  for (let i = 0; i < 14; i++) bk += `<i class="bk" style="left:${f1(0, 100)}%;bottom:${f1(30, 70)}%;width:${Math.round(rnd(6, 16))}px;height:${Math.round(rnd(6, 16))}px;background:${cols[i % 4]};opacity:.5;animation-duration:${f1(3, 6)}s;animation-delay:-${f1(0, 5)}s"></i>`;
+  /* chaque couche = 2 copies côte à côte qui défilent en boucle ; plus la couche est lointaine, plus elle est lente */
+  const layer = (inner, dur) => `<div class="sc" style="bottom:${base};animation-duration:${dur}s"><div class="scp">${inner}</div><div class="scp">${inner}</div></div>`;
+  return layer(skyline('#0d0b20', 130, 240, .14, .55, cols), 120) + layer(skyline('#14122b', 90, 200, .22, .8, cols), 60) + layer(bk, 40)
+    + '<i class="lamps"></i><div class="mroad"><i class="dash"></i></div>';
+}
+const speedLines = () => { let h = ''; for (let i = 0; i < 9; i++) h += `<i class="spd" style="top:${f1(45, 96)}%;width:${Math.round(rnd(120, 260))}px;animation-duration:${f1(.5, 1.2)}s;animation-delay:-${f1(0, 1.2)}s"></i>`; return h; };
+
+/* Arbres morts : branches récursives */
+function bareTrees(fill, n, hMin, hMax, op) {
+  n = Math.round(n * (innerWidth < 700 ? 2.2 : 1));
+  const br = (x, y, len, ang, w, d) => {
+    if (d === 0) return '';
+    const x2 = x + len * Math.sin(ang), y2 = y - len * Math.cos(ang);
+    return `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${x2.toFixed(0)}" y2="${y2.toFixed(0)}" stroke-width="${w.toFixed(1)}"/>` + br(x2, y2, len * rnd(.66, .8), ang - rnd(.3, .7), w * .72, d - 1) + br(x2, y2, len * rnd(.66, .8), ang + rnd(.3, .7), w * .72, d - 1);
+  };
+  let s = '';
+  for (let i = 0; i < n; i++) s += br(rnd(0, 1600), 400, rnd(hMin, hMax) * .3, rnd(-.15, .15), rnd(5, 8), 6);
+  return `<svg class="fo" style="opacity:${op};animation-delay:-${f1(0, 8)}s" viewBox="0 0 1600 400" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><g stroke="${fill}" stroke-linecap="round">${s}</g></svg>`;
+}
+
+/* Galaxie : nébuleuses, étoiles, galaxies spirales qui tournent, planètes qui flottent */
+function spiral(uid, h1, h2, arms, turns) {
+  let s = `<defs><radialGradient id="${uid}"><stop offset="0" stop-color="#fff"/><stop offset=".3" stop-color="hsl(${h1},95%,82%)" stop-opacity=".85"/><stop offset="1" stop-color="hsl(${h1},90%,60%)" stop-opacity="0"/></radialGradient><filter id="${uid}b"><feGaussianBlur stdDeviation="1.3"/></filter></defs><g filter="url(#${uid}b)"><circle cx="100" cy="100" r="36" fill="url(#${uid})"/>`;
+  for (let a = 0; a < arms; a++) for (let i = 0; i < 150; i++) {
+    const t = i / 150, r = 8 + t * 90, th = a * 6.283 / arms + t * turns + rnd(-.2, .2) * (1 - t * .4);
+    s += `<circle cx="${(100 + r * Math.cos(th) + rnd(-4, 4) * t).toFixed(1)}" cy="${(100 + r * Math.sin(th) + rnd(-4, 4) * t).toFixed(1)}" r="${f1(.6, 2.2)}" fill="hsl(${Math.round(h1 + (h2 - h1) * t)},90%,${Math.round(82 - t * 22)}%)" opacity="${(.95 - t * .55).toFixed(2)}"/>`;
+  }
+  return s + '</g>';
+}
+function galaxyHTML() {
+  let h = '<i class="neb" style="left:-10%;top:5%;width:55vw;height:40vh;background:rgba(120,70,255,.35)"></i><i class="neb" style="right:-10%;top:45%;width:50vw;height:45vh;background:rgba(0,190,255,.25);animation-delay:-20s"></i><i class="neb" style="left:25%;bottom:-10%;width:60vw;height:35vh;background:rgba(255,80,190,.2);animation-delay:-40s"></i>';
+  for (let i = 0; i < 90; i++) h += `<i class="star${i % 14 === 0 ? ' big' : ''}" style="left:${f1(0, 100)}%;top:${f1(0, 100)}%;--s:${f1(1, 2.8)}px;animation-duration:${f1(2, 6)}s;animation-delay:-${f1(0, 6)}s"></i>`;
+  const gal = (l, t, w, rot, h1, h2, arms, turns, dur, uid) => `<div class="galw" style="left:${l}%;top:${t}%;width:${w}px;transform:rotate(${rot}deg) scaleY(.46)"><svg class="gal" style="animation-duration:${dur}s" viewBox="0 0 200 200" aria-hidden="true">${spiral(uid, h1, h2, arms, turns)}</svg></div>`;
+  h += gal(62, 8, 300, -22, 270, 200, 2, 5.2, 140, 'ga') + gal(4, 48, 220, 18, 190, 320, 3, 4.2, 180, 'gb') + gal(40, 74, 130, -8, 40, 20, 2, 4.8, 220, 'gc');
+  const PL = [   // gauche %, haut %, taille px, texture, lueur, durée du flottement, option
+    [5, 14, 130, 'repeating-linear-gradient(172deg,rgba(255,255,255,.08) 0 7px,transparent 7px 16px),radial-gradient(circle at 32% 30%,#ffe7b0,#e9a24e 45%,#8f4b1d 100%)', 'rgba(255,190,110,.35)', 11, 'ring'],
+    [84, 52, 96, 'repeating-linear-gradient(180deg,rgba(255,255,255,.1) 0 5px,transparent 5px 12px),radial-gradient(circle at 32% 30%,#9ad4ff,#3f77e0 50%,#16296b 100%)', 'rgba(90,150,255,.4)', 13, ''],
+    [14, 74, 64, 'radial-gradient(circle at 32% 30%,#c9f5d4,#3fb089 45%,#0f4a52 100%)', 'rgba(80,220,170,.35)', 9, 'moon'],
+    [76, 12, 38, 'radial-gradient(circle at 32% 30%,#ffb3a0,#d9503c 50%,#5a1410 100%)', 'rgba(255,100,80,.35)', 8, '']
+  ];
+  h += PL.map(([l, t, s, bg, g, d, ex]) => `<div class="pl" style="left:${l}%;top:${t}%;width:${s}px;height:${s}px;animation-duration:${d}s">${ex === 'ring' ? '<i class="ring b"></i>' : ''}<i class="sph" style="background:${bg};box-shadow:inset -${Math.round(s * .11)}px -${Math.round(s * .08)}px ${Math.round(s * .22)}px rgba(0,0,0,.65),0 0 ${Math.round(s * .28)}px ${g}"></i>${ex === 'ring' ? '<i class="ring f"></i>' : ''}${ex === 'moon' ? '<div class="orb"><i></i></div>' : ''}</div>`).join('');
+  return h + '<i class="shoot" style="top:14%;left:60%;animation-delay:2s"></i><i class="shoot" style="top:40%;left:90%;animation-duration:14s;animation-delay:8s"></i>';
 }
 
 function fx(t) {
-  const B = { tron: tronHTML, forest: forestHTML, city: () => cityHTML(false), day: () => cityHTML(true), dungeon: dungeonHTML, storm: stormHTML, rooms: roomsHTML, moto: motoHTML }[t];
-  const R = { forest: leavesHTML, storm: () => rain(70), moto: () => rain(60) }[t];
-  $('fx').className = t; $('fx2').className = t;
+  const B = { tron: tronHTML, forest: forestHTML, city: () => cityHTML(false), day: () => cityHTML(true), dungeon: dungeonHTML, storm: stormHTML, rooms: roomsHTML, moto: motoHTML, galaxy: galaxyHTML }[t];
+  const R = { forest: leavesHTML, storm: () => rain(70), moto: () => rain(60) + speedLines() + motoBike() }[t];
+  $('fx').className = 'th-' + t; $('fx2').className = 'th-' + t;   // préfixe : évite tout conflit avec les classes du décor
   $('fx').innerHTML = B ? B() : '';
   $('fx2').innerHTML = R ? R() : '';
 }
@@ -579,7 +650,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') ddClose('');
 function qToggle(open) {
   const o = open === undefined ? !$('qa').classList.contains('open') : open;
   $('qa').classList.toggle('open', o); $('qc').classList.toggle('open', o); $('new').setAttribute('aria-expanded', o);
-  if (o) setTimeout(() => $('t').focus({ preventScroll: true }), 360); else calOpen(false);
+  if (o) setTimeout(() => { if ($('qa').classList.contains('open')) { $('qa').classList.add('settled'); $('t').focus({ preventScroll: true }); } }, 380);
+  else { $('qa').classList.remove('settled'); calOpen(false); }
 }
 $('new').onclick = () => qToggle();
 

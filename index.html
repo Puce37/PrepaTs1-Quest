@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>TSI</title>
+  <title>Quest Log</title>
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="fx" aria-hidden="true"></div>
@@ -37,6 +36,7 @@
       <button class="tb" data-t="storm" title="Pluie et orage" aria-label="Pluie et orage">⛈️</button>
       <button class="tb" data-t="rooms" title="Backrooms" aria-label="Backrooms">🟨</button>
       <button class="tb" data-t="moto" title="Moto sous la pluie" aria-label="Moto sous la pluie">🏍️</button>
+      <button class="tb" data-t="galaxy" title="Galaxie" aria-label="Galaxie">🌌</button>
     </div>
 
     <div class="card dd" id="mp" hidden>
@@ -61,7 +61,8 @@
 
     <div class="sync" id="sync"></div>
     <div class="hero">
-      <div class="lv" id="lv">1</div>
+      <div class="lv" id="lv" title="Profil"><span class="lvp">👤</span></div>
+      <div class="lvn" title="Niveau"><small>NIV.</small><b id="lvn">1</b></div>
       <div class="xp">
         <strong id="rank">Novice</strong> <small id="xpt"></small>
         <div class="track"><div id="bar"></div></div>

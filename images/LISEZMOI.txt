@@ -8,3 +8,10 @@ Place tes 4 images de trophees dans ce dossier avec ces noms exacts :
 Conseil : PNG ou SVG transparent, carre, environ 128 x 128 px.
 Autre extension (.webp, .svg, .jpg) ? Modifie les chemins "img" dans js/script.js (objet DIF).
 Tant qu'une image est absente, un emoji de remplacement s'affiche automatiquement.
+
+Logo du site (facultatif) : place un fichier "logo.png" dans ce dossier.
+Il s'affiche en haut a gauche, a la place de l'emoji, et sert aussi d'icone d'onglet.
+Conseil : PNG transparent, hauteur ~120 px minimum (affiche a 40 px de haut).
+
+Logo : place ton logo dans ce dossier sous le nom  logo.png  (PNG transparent conseille,
+hauteur affichee : 40 px). Il apparait a gauche du titre. Sans fichier, l'icone epee s'affiche.
