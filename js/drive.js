@@ -34,7 +34,7 @@ const gst = (msg, err) => { const e = $('gstat'); if (e) { e.textContent = msg; 
 
 function ui() {
   $('sync').innerHTML = gOn && gUser
-    ? `<img class="av" src="${esc(gUser.picture || '')}" alt="" referrerpolicy="no-referrer"><strong>${esc(gUser.name || 'Connecté')}</strong>
+    ? `<strong>${esc(gUser.name || 'Connecté')}</strong>
        <span id="gstat" class="gstat" role="status"></span>${gNeed ? '<button class="gbtn" id="gren" type="button">Reprendre</button>' : ''}<button class="gbtn" id="gout" type="button">Se déconnecter</button>`
     : `<button class="gbtn" id="gin" type="button">☁️ Se connecter avec Google</button>
        <span id="gstat" class="gstat" role="status">Sauvegarde locale uniquement</span>`;
