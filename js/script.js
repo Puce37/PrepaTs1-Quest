@@ -632,16 +632,19 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('cal').
    MENUS DÉROULANTS (thèmes, musique, paramètres) + CRÉATION DE QUÊTE
    ========================================================== */
 const DDS = ['themes', 'mp', 'set'];
+const ddLift = () => $('hd').classList.toggle('dd-open', DDS.some(id => !$(id).hidden));
 function ddClose(except) {
   DDS.forEach(id => {
     if (id === except) return;
     $(id).hidden = true;
     const b = document.querySelector(`[data-dd="${id}"]`); b.classList.remove('on'); b.setAttribute('aria-expanded', 'false');
   });
+  ddLift();
 }
 document.querySelectorAll('[data-dd]').forEach(b => b.addEventListener('click', () => {
   const p = $(b.dataset.dd), open = p.hidden;
   ddClose(open ? p.id : ''); p.hidden = !open; b.classList.toggle('on', open); b.setAttribute('aria-expanded', open);
+  ddLift();
 }));
 /* composedPath : fiable même si le contenu du menu est redessiné pendant le clic */
 document.addEventListener('click', e => { if (!e.composedPath().some(n => n.nodeType === 1 && (n.classList.contains('dd') || n.dataset.dd))) ddClose(''); });

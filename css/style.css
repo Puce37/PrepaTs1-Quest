@@ -32,7 +32,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:10
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background-color:var(--bg);color:var(--tx);font:15px/1.45 var(--font);transition:background-color .3s,color .3s}
 body::before{content:"";position:fixed;inset:0;z-index:-1;background-image:var(--bgimg);background-size:var(--bgsize)}
-.w{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:16px}
+.w{position:relative;max-width:760px;margin:0 auto;padding:16px}
 .card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;box-shadow:var(--sh);transition:background .3s,border-color .3s}
 h1{font-size:20px;margin:0;letter-spacing:-.02em}
 input,select{font:inherit;font-size:16px;-webkit-appearance:none;appearance:none;color:var(--tx);background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;width:100%;outline:none;transition:border-color .2s,box-shadow .2s}
@@ -414,3 +414,7 @@ span.logo{font-size:30px;line-height:40px}
 .orb{position:absolute;inset:-34%;animation:spin 10s linear infinite}
 .orb i{position:absolute;left:50%;top:-6px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#eee,#8a8a98 60%,#3a3a48)}
 @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+
+/* Un menu ouvert passe au-dessus de tout (cartes à effet de verre, pluie, feuilles, moto…) */
+#hd.dd-open{z-index:40}
+#qc.open{position:relative;z-index:20}
